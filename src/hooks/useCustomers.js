@@ -126,6 +126,7 @@ export const useCustomers = () => {
   return {
     customers,
     allCustomers: dateFilteredAll,
+    baseCustomers: allCustomers,
     stats,
     searchTerm, setSearchTerm,
     filterStatus, setFilterStatus,
