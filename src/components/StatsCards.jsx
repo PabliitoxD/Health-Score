@@ -26,9 +26,9 @@ const MetricTooltip = ({ text }) => {
     >
       <Info size={13} className="text-slate-300 dark:text-slate-600 cursor-help" />
       {visible && (
-        <div className="absolute bottom-full right-0 mb-2 w-56 p-3 bg-slate-900 dark:bg-slate-700 text-slate-200 text-[11px] leading-relaxed rounded-xl shadow-xl z-20 pointer-events-none">
+        <div className="absolute top-full right-0 mt-2 w-56 p-3 bg-slate-900 dark:bg-slate-700 text-slate-200 text-[11px] leading-relaxed rounded-xl shadow-xl z-20 pointer-events-none">
+          <div className="absolute bottom-full right-2 border-4 border-transparent border-b-slate-900 dark:border-b-slate-700" />
           {text}
-          <div className="absolute top-full right-2 border-4 border-transparent border-t-slate-900 dark:border-t-slate-700" />
         </div>
       )}
     </div>
