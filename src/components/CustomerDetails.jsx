@@ -38,7 +38,7 @@ const CustomerDetails = ({ selectedCustomer }) => {
   if (!selectedCustomer) {
     return (
       <div className="lg:col-span-1">
-        <div className="h-[400px] border-2 border-dashed border-slate-200 dark:border-slate-800 rounded-2xl flex flex-col items-center justify-center text-slate-400 dark:text-slate-600 p-8 text-center sticky top-20">
+        <div className="h-[400px] border-2 border-dashed border-slate-200 dark:border-slate-800 rounded-2xl flex flex-col items-center justify-center text-slate-400 dark:text-slate-600 p-8 text-center sticky top-28">
           <Users size={48} className="mb-4 opacity-20" />
           <p className="text-sm font-medium">Selecione um cliente para ver o detalhamento da saúde.</p>
         </div>
@@ -52,7 +52,7 @@ const CustomerDetails = ({ selectedCustomer }) => {
 
   return (
     <div className="lg:col-span-1">
-      <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-800 overflow-hidden sticky top-20">
+      <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-800 overflow-hidden sticky top-28">
         {/* Header */}
         <div className="p-6 border-b border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/30">
           <div className="flex justify-between items-start mb-3">
