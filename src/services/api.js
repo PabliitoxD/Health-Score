@@ -7,7 +7,7 @@ const rawCustomers = [
     tier: "Liderança",
     mrr: 2490,
     lastLoginDays: 0,
-    joinDate: "2024-01-15",
+    joinDate: "2026-06-15", // hoje
     approvalRate: 92,
     volumeUsage: 95,
     multiAcquirer: true,
@@ -21,7 +21,7 @@ const rawCustomers = [
     tier: "Autoridade",
     mrr: 1290,
     lastLoginDays: 12,
-    joinDate: "2024-03-20",
+    joinDate: "2026-06-12", // esta semana
     approvalRate: 58,
     volumeUsage: 15,
     multiAcquirer: false,
@@ -35,7 +35,7 @@ const rawCustomers = [
     tier: "Eficiência",
     mrr: 890,
     lastLoginDays: 2,
-    joinDate: "2024-05-10",
+    joinDate: "2026-06-10", // esta semana
     approvalRate: 84,
     volumeUsage: 65,
     multiAcquirer: true,
@@ -49,7 +49,7 @@ const rawCustomers = [
     tier: "Profissional",
     mrr: 490,
     lastLoginDays: 1,
-    joinDate: "2024-07-01",
+    joinDate: "2026-06-04", // este mês
     approvalRate: 89,
     volumeUsage: 82,
     multiAcquirer: true,
@@ -63,7 +63,7 @@ const rawCustomers = [
     tier: "Autonomia",
     mrr: 290,
     lastLoginDays: 15,
-    joinDate: "2024-09-12",
+    joinDate: "2025-11-20", // mês anterior
     approvalRate: 45,
     volumeUsage: 8,
     multiAcquirer: false,
@@ -77,7 +77,7 @@ const rawCustomers = [
     tier: "Liderança",
     mrr: 2490,
     lastLoginDays: 0,
-    joinDate: "2023-11-05",
+    joinDate: "2025-03-08", // trimestre anterior
     approvalRate: 82,
     volumeUsage: 110,
     multiAcquirer: true,

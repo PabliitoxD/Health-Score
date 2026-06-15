@@ -1,6 +1,15 @@
 import { useState, useEffect, useMemo } from 'react';
 import { getCustomers, getStats } from '../services/api';
 
+const startOfWeek = (date) => {
+  const d = new Date(date);
+  const day = d.getDay();
+  const diff = day === 0 ? -6 : 1 - day; // semana começa na segunda
+  d.setDate(d.getDate() + diff);
+  d.setHours(0, 0, 0, 0);
+  return d;
+};
+
 const applyDateFilter = (customers, dateFilter, customDateRange) => {
   if (dateFilter === 'all') return customers;
 
@@ -8,29 +17,43 @@ const applyDateFilter = (customers, dateFilter, customDateRange) => {
   today.setHours(0, 0, 0, 0);
 
   if (dateFilter === 'today') {
-    return customers.filter((c) => c.lastLoginDays === 0);
+    return customers.filter((c) => {
+      const join = new Date(c.joinDate + 'T00:00:00');
+      return join.getTime() === today.getTime();
+    });
   }
+
   if (dateFilter === 'week') {
-    return customers.filter((c) => c.lastLoginDays <= 7);
+    const weekStart = startOfWeek(today);
+    return customers.filter((c) => {
+      const join = new Date(c.joinDate + 'T00:00:00');
+      return join >= weekStart && join <= today;
+    });
   }
+
   if (dateFilter === 'month') {
-    return customers.filter((c) => c.lastLoginDays <= 30);
+    return customers.filter((c) => {
+      const join = new Date(c.joinDate + 'T00:00:00');
+      return join.getFullYear() === today.getFullYear() &&
+             join.getMonth() === today.getMonth();
+    });
   }
+
   if (dateFilter === 'custom') {
     return customers.filter((c) => {
-      const loginDate = new Date(today);
-      loginDate.setDate(loginDate.getDate() - c.lastLoginDays);
+      const join = new Date(c.joinDate + 'T00:00:00');
       if (customDateRange.from) {
         const from = new Date(customDateRange.from + 'T00:00:00');
-        if (loginDate < from) return false;
+        if (join < from) return false;
       }
       if (customDateRange.to) {
         const to = new Date(customDateRange.to + 'T23:59:59');
-        if (loginDate > to) return false;
+        if (join > to) return false;
       }
       return true;
     });
   }
+
   return customers;
 };
 
@@ -63,13 +86,13 @@ export const useCustomers = () => {
     loadData();
   }, []);
 
-  // Date-filtered set — used for charts (no search/status applied)
+  // Filtered by date only — feeds charts and stats
   const dateFilteredAll = useMemo(
     () => applyDateFilter(allCustomers, dateFilter, customDateRange),
     [allCustomers, dateFilter, customDateRange]
   );
 
-  // Fully filtered set — used for the customer list
+  // Fully filtered — feeds the customer list
   const customers = useMemo(
     () =>
       dateFilteredAll.filter((c) => {
