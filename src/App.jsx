@@ -1,47 +1,39 @@
-import React from 'react';
+import React, { useState } from 'react';
+import { useAuth } from './context/AuthContext';
 import { useCustomers } from './hooks/useCustomers';
+import LoginPage from './components/LoginPage';
 import Header from './components/Header';
-import StatsCards from './components/StatsCards';
-import CustomerList from './components/CustomerList';
-import CustomerDetails from './components/CustomerDetails';
+import DashboardView from './components/DashboardView';
+import CustomersView from './components/CustomersView';
 
 const App = () => {
-  const {
-    customers,
-    stats,
-    searchTerm,
-    setSearchTerm,
-    filterStatus,
-    setFilterStatus,
-    selectedCustomer,
-    setSelectedCustomer,
-    loading
-  } = useCustomers();
+  const { isAuthenticated } = useAuth();
+  const [activeView, setActiveView] = useState('dashboard');
+  const customerData = useCustomers();
+
+  if (!isAuthenticated) return <LoginPage />;
 
   return (
-    <div className="min-h-screen bg-slate-50 p-4 md:p-8 font-sans text-slate-900">
-      <Header />
-      
-      {loading ? (
-        <div className="flex items-center justify-center h-64">
-          <p className="text-slate-500 font-medium animate-pulse">Carregando dados da base...</p>
-        </div>
+    <div className="min-h-screen bg-slate-50 dark:bg-slate-950 font-sans text-slate-900 dark:text-slate-100 transition-colors">
+      <Header activeView={activeView} setActiveView={setActiveView} />
+
+      {activeView === 'dashboard' ? (
+        <DashboardView
+          stats={customerData.stats}
+          allCustomers={customerData.allCustomers}
+          loading={customerData.loading}
+        />
       ) : (
-        <>
-          <StatsCards stats={stats} />
-          <div className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-3 gap-8">
-            <CustomerList 
-              customers={customers} 
-              searchTerm={searchTerm} 
-              setSearchTerm={setSearchTerm} 
-              filterStatus={filterStatus} 
-              setFilterStatus={setFilterStatus} 
-              selectedCustomer={selectedCustomer} 
-              setSelectedCustomer={setSelectedCustomer} 
-            />
-            <CustomerDetails selectedCustomer={selectedCustomer} />
-          </div>
-        </>
+        <CustomersView
+          customers={customerData.customers}
+          searchTerm={customerData.searchTerm}
+          setSearchTerm={customerData.setSearchTerm}
+          filterStatus={customerData.filterStatus}
+          setFilterStatus={customerData.setFilterStatus}
+          selectedCustomer={customerData.selectedCustomer}
+          setSelectedCustomer={customerData.setSelectedCustomer}
+          loading={customerData.loading}
+        />
       )}
     </div>
   );
