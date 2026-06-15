@@ -1,129 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { CheckCircle2, ShieldCheck, Menu, X as XIcon } from 'lucide-react';
+import { CheckCircle2, ShieldCheck } from 'lucide-react';
 import { getResponseByToken, saveResponse } from '../utils/surveyStorage';
-
-// ─── Brand constants ────────────────────────────────────────────────────────
-
-const LOGO_URL = 'https://www.bravvius.com/wp-content/uploads/2025/12/bravvius_original-1024x270.png';
-const BRAND_ORANGE = '#FF5C00';
-
-const NAV_LINKS = [
-  { label: 'Soluções', href: 'https://www.bravvius.com/#solucoes' },
-  { label: 'Planos', href: 'https://www.bravvius.com/planos/' },
-  { label: 'Blog', href: 'https://www.bravvius.com/blog/' },
-  { label: 'Sobre Nós', href: 'https://www.bravvius.com/sobre/' },
-  { label: 'Suporte', href: 'https://www.bravvius.com/suporte/' },
-];
-
-// ─── Header ─────────────────────────────────────────────────────────────────
-
-const Header = () => {
-  const [menuOpen, setMenuOpen] = useState(false);
-  return (
-    <header className="bg-white border-b border-gray-100 sticky top-0 z-20">
-      <div className="max-w-6xl mx-auto px-5 sm:px-8 h-16 flex items-center justify-between">
-        {/* Logo */}
-        <a href="https://www.bravvius.com" target="_blank" rel="noopener noreferrer" className="flex-shrink-0">
-          <img
-            src={LOGO_URL}
-            alt="Bravvius"
-            className="h-7 w-auto object-contain"
-            onError={(e) => {
-              e.target.style.display = 'none';
-              e.target.nextSibling.style.display = 'block';
-            }}
-          />
-          <span style={{ display: 'none' }} className="text-xl font-bold text-gray-900">Bravvius</span>
-        </a>
-
-        {/* Desktop nav */}
-        <nav className="hidden md:flex items-center gap-7">
-          {NAV_LINKS.map((l) => (
-            <a
-              key={l.label}
-              href={l.href}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-sm text-gray-600 hover:text-gray-900 font-medium transition-colors"
-            >
-              {l.label}
-            </a>
-          ))}
-        </nav>
-
-        {/* CTA */}
-        <div className="hidden md:flex items-center gap-3">
-          <a
-            href="https://app.bravvius.com/Login/"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-sm font-semibold text-gray-600 hover:text-gray-900 transition-colors"
-          >
-            Login
-          </a>
-          <a
-            href="https://app.bravvius.com/Register/"
-            target="_blank"
-            rel="noopener noreferrer"
-            style={{ backgroundColor: BRAND_ORANGE }}
-            className="px-4 py-2 rounded-lg text-sm font-semibold text-white hover:opacity-90 transition-opacity"
-          >
-            Começar grátis
-          </a>
-        </div>
-
-        {/* Mobile menu toggle */}
-        <button className="md:hidden p-2 text-gray-500" onClick={() => setMenuOpen((o) => !o)}>
-          {menuOpen ? <XIcon size={20} /> : <Menu size={20} />}
-        </button>
-      </div>
-
-      {/* Mobile nav */}
-      {menuOpen && (
-        <div className="md:hidden bg-white border-t border-gray-100 px-5 py-4 space-y-3">
-          {NAV_LINKS.map((l) => (
-            <a
-              key={l.label}
-              href={l.href}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="block text-sm text-gray-600 font-medium py-1"
-              onClick={() => setMenuOpen(false)}
-            >
-              {l.label}
-            </a>
-          ))}
-          <a
-            href="https://app.bravvius.com/Login/"
-            target="_blank"
-            rel="noopener noreferrer"
-            style={{ backgroundColor: BRAND_ORANGE }}
-            className="block text-center px-4 py-2 rounded-lg text-sm font-semibold text-white mt-2"
-          >
-            Login
-          </a>
-        </div>
-      )}
-    </header>
-  );
-};
-
-// ─── Footer ─────────────────────────────────────────────────────────────────
-
-const Footer = () => (
-  <footer className="bg-white border-t border-gray-100 mt-12">
-    <div className="max-w-6xl mx-auto px-5 sm:px-8 py-6 flex flex-col sm:flex-row items-center justify-between gap-3">
-      <img src={LOGO_URL} alt="Bravvius" className="h-5 w-auto opacity-60" />
-      <p className="text-xs text-gray-400">
-        © {new Date().getFullYear()} Bravvius. Todos os direitos reservados.
-      </p>
-      <div className="flex items-center gap-1 text-xs text-gray-400">
-        <ShieldCheck size={12} />
-        <span>Suas respostas são confidenciais</span>
-      </div>
-    </div>
-  </footer>
-);
 
 // ─── NPS ────────────────────────────────────────────────────────────────────
 
@@ -140,16 +17,16 @@ const NPS_ACTIVE = (n) => {
 
 const NpsForm = ({ score, setScore }) => (
   <>
-    <h2 className="text-xl font-bold text-gray-900 mb-1">
+    <h2 className="text-lg font-bold text-slate-900 mb-1">
       Em uma escala de 0 a 10, qual a probabilidade de você recomendar a Bravvius a um colega ou parceiro de negócios?
     </h2>
-    <p className="text-gray-400 text-sm mb-7">0 = muito improvável · 10 = extremamente provável</p>
-    <div className="grid grid-cols-11 gap-1.5 mb-2">
+    <p className="text-slate-400 text-xs mb-6">0 = muito improvável · 10 = extremamente provável</p>
+    <div className="grid grid-cols-11 gap-1 mb-2">
       {Array.from({ length: 11 }, (_, i) => (
         <button
           key={i}
           onClick={() => setScore(i)}
-          className={`aspect-square rounded-xl border-2 text-sm font-bold transition-all ${
+          className={`aspect-square rounded-lg border text-sm font-bold transition-all ${
             score === i ? NPS_ACTIVE(i) : NPS_HOVER(i)
           }`}
         >
@@ -157,14 +34,14 @@ const NpsForm = ({ score, setScore }) => (
         </button>
       ))}
     </div>
-    <div className="flex justify-between text-xs text-gray-400 mb-8">
+    <div className="flex justify-between text-[10px] text-slate-400 mb-6">
       <span>Improvável</span>
       <span>Provável</span>
     </div>
   </>
 );
 
-// ─── CSAT Health ────────────────────────────────────────────────────────────
+// ─── CSAT Health ─────────────────────────────────────────────────────────────
 
 const CSAT_OPTIONS = [
   { value: 1, emoji: '😞', label: 'Muito Insatisfeito' },
@@ -176,30 +53,29 @@ const CSAT_OPTIONS = [
 
 const CsatHealthForm = ({ score, setScore }) => (
   <>
-    <h2 className="text-xl font-bold text-gray-900 mb-7">
+    <h2 className="text-lg font-bold text-slate-900 mb-6">
       Como você avalia sua experiência atual com a Bravvius?
     </h2>
-    <div className="flex justify-between gap-3 mb-8">
+    <div className="flex justify-between gap-2 mb-6">
       {CSAT_OPTIONS.map((opt) => (
         <button
           key={opt.value}
           onClick={() => setScore(opt.value)}
-          className={`flex-1 flex flex-col items-center gap-2.5 p-4 rounded-2xl border-2 transition-all ${
+          className={`flex-1 flex flex-col items-center gap-2 p-3 rounded-xl border-2 transition-all ${
             score === opt.value
-              ? 'border-orange-400 bg-orange-50 shadow-sm'
-              : 'border-gray-100 hover:border-gray-200 bg-white'
+              ? 'border-blue-600 bg-blue-50'
+              : 'border-slate-100 hover:border-slate-300 bg-white'
           }`}
-          style={score === opt.value ? { borderColor: BRAND_ORANGE, backgroundColor: '#FFF5F0' } : {}}
         >
-          <span className="text-3xl">{opt.emoji}</span>
-          <span className="text-[11px] text-gray-500 font-medium text-center leading-tight">{opt.label}</span>
+          <span className="text-2xl">{opt.emoji}</span>
+          <span className="text-[10px] text-slate-500 font-medium text-center leading-tight">{opt.label}</span>
         </button>
       ))}
     </div>
   </>
 );
 
-// ─── CSAT Onboarding ────────────────────────────────────────────────────────
+// ─── CSAT Onboarding ─────────────────────────────────────────────────────────
 
 const ONBOARDING_CATEGORIES = [
   { key: 'sistema', label: 'Sistema (geral)' },
@@ -212,18 +88,17 @@ const ONBOARDING_CATEGORIES = [
 ];
 
 const CategoryRating = ({ label, value, onChange }) => (
-  <div className="flex items-center justify-between gap-4 py-3.5 border-b border-gray-50 last:border-0">
-    <span className="text-sm text-gray-700 flex-1 leading-tight">{label}</span>
-    <div className="flex gap-2 flex-shrink-0">
+  <div className="flex items-center justify-between gap-4 py-2.5 border-b border-slate-50 last:border-0">
+    <span className="text-sm text-slate-700 flex-1">{label}</span>
+    <div className="flex gap-1.5 flex-shrink-0">
       {[1, 2, 3, 4, 5].map((n) => (
         <button
           key={n}
           onClick={() => onChange(n)}
-          style={value === n ? { backgroundColor: BRAND_ORANGE, borderColor: BRAND_ORANGE } : {}}
-          className={`w-9 h-9 rounded-lg border-2 text-sm font-bold transition-all ${
+          className={`w-8 h-8 rounded-lg border text-xs font-bold transition-all ${
             value === n
-              ? 'text-white'
-              : 'border-gray-200 text-gray-400 hover:border-gray-400 hover:text-gray-600'
+              ? 'bg-blue-600 border-blue-600 text-white'
+              : 'border-slate-200 text-slate-400 hover:border-blue-400 hover:text-blue-600'
           }`}
         >
           {n}
@@ -234,22 +109,21 @@ const CategoryRating = ({ label, value, onChange }) => (
 );
 
 const CsatOnboardingForm = ({ scores, setScores }) => {
-  const rated = Object.keys(scores).length;
-  const remaining = ONBOARDING_CATEGORIES.length - rated;
+  const remaining = ONBOARDING_CATEGORIES.length - Object.keys(scores).length;
   return (
     <>
-      <h2 className="text-xl font-bold text-gray-900 mb-1">
+      <h2 className="text-lg font-bold text-slate-900 mb-1">
         Avalie sua experiência de onboarding com a Bravvius
       </h2>
-      <p className="text-gray-400 text-sm mb-6">
+      <p className="text-slate-400 text-xs mb-5">
         Avalie cada área de 1 (muito ruim) a 5 (excelente)
         {remaining > 0 && (
-          <span className="ml-2 text-amber-500 font-semibold">
+          <span className="ml-2 text-amber-500 font-medium">
             · {remaining} pendente{remaining !== 1 ? 's' : ''}
           </span>
         )}
       </p>
-      <div className="bg-gray-50 rounded-2xl px-5 py-1 mb-8">
+      <div className="bg-slate-50 rounded-xl px-4 py-1 mb-6">
         {ONBOARDING_CATEGORIES.map((cat) => (
           <CategoryRating
             key={cat.key}
@@ -263,7 +137,7 @@ const CsatOnboardingForm = ({ scores, setScores }) => {
   );
 };
 
-// ─── CSAT NPS Follow ────────────────────────────────────────────────────────
+// ─── CSAT NPS Follow ─────────────────────────────────────────────────────────
 
 const FOLLOW_CATEGORIES = [
   { key: 'suporte', label: 'Suporte ao cliente' },
@@ -272,22 +146,21 @@ const FOLLOW_CATEGORIES = [
 ];
 
 const CsatNpsFollowForm = ({ scores, setScores, feedback, setFeedback }) => {
-  const rated = Object.keys(scores).length;
-  const remaining = FOLLOW_CATEGORIES.length - rated;
+  const remaining = FOLLOW_CATEGORIES.length - Object.keys(scores).length;
   return (
     <>
-      <h2 className="text-xl font-bold text-gray-900 mb-1">
+      <h2 className="text-lg font-bold text-slate-900 mb-1">
         Nos ajude a entender melhor sua experiência
       </h2>
-      <p className="text-gray-400 text-sm mb-6">
+      <p className="text-slate-400 text-xs mb-5">
         Sua avaliação recente nos motivou a entender onde podemos melhorar.
         {remaining > 0 && (
-          <span className="ml-2 text-amber-500 font-semibold">
+          <span className="ml-2 text-amber-500 font-medium">
             · {remaining} pendente{remaining !== 1 ? 's' : ''}
           </span>
         )}
       </p>
-      <div className="bg-gray-50 rounded-2xl px-5 py-1 mb-5">
+      <div className="bg-slate-50 rounded-xl px-4 py-1 mb-5">
         {FOLLOW_CATEGORIES.map((cat) => (
           <CategoryRating
             key={cat.key}
@@ -297,61 +170,57 @@ const CsatNpsFollowForm = ({ scores, setScores, feedback, setFeedback }) => {
           />
         ))}
       </div>
-      <div className="mb-8">
-        <label className="block text-sm font-semibold text-gray-700 mb-2">
+      <div className="mb-6">
+        <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">
           O que podemos fazer para melhorar sua experiência?
         </label>
         <textarea
           value={feedback}
           onChange={(e) => setFeedback(e.target.value)}
-          rows={4}
+          rows={3}
           placeholder="Conte-nos o que não está funcionando como esperado..."
-          className="w-full px-4 py-3 text-sm border border-gray-200 rounded-xl focus:outline-none focus:ring-2 resize-none text-gray-700 placeholder-gray-300 bg-white"
-          style={{ '--tw-ring-color': BRAND_ORANGE + '30' }}
+          className="w-full px-4 py-3 text-sm border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 resize-none text-slate-700 placeholder-slate-300"
         />
       </div>
     </>
   );
 };
 
-// ─── Thank You ──────────────────────────────────────────────────────────────
+// ─── Thank You ────────────────────────────────────────────────────────────────
 
 const ThankYou = ({ type, score }) => (
-  <div className="text-center py-10">
-    <div className="inline-flex items-center justify-center w-20 h-20 rounded-full mb-5"
-      style={{ backgroundColor: '#FFF5F0' }}>
-      <CheckCircle2 size={36} style={{ color: BRAND_ORANGE }} />
+  <div className="text-center py-8">
+    <div className="inline-flex items-center justify-center w-16 h-16 bg-blue-50 rounded-full mb-4">
+      <CheckCircle2 size={32} className="text-blue-600" />
     </div>
-    <h2 className="text-2xl font-bold text-gray-900 mb-3">Obrigado pelo feedback!</h2>
-    <p className="text-gray-500 text-base leading-relaxed max-w-sm mx-auto">
-      Sua opinião é muito importante para nós e nos ajuda a melhorar continuamente a sua experiência com a Bravvius.
+    <h2 className="text-xl font-bold text-slate-900 mb-2">Obrigado pelo feedback!</h2>
+    <p className="text-slate-500 text-sm leading-relaxed max-w-xs mx-auto">
+      Sua opinião é muito importante para nós e nos ajuda a melhorar continuamente a sua experiência.
     </p>
     {score != null && (
-      <div className="mt-7 inline-flex items-center gap-3 px-6 py-3 bg-gray-50 rounded-2xl">
-        <span className="text-sm text-gray-500 font-medium">
+      <div className="mt-6 inline-flex items-center gap-2 px-4 py-2 bg-slate-50 rounded-xl">
+        <span className="text-xs text-slate-500 font-medium">
           {type === 'nps' ? 'Sua nota:' : 'Média geral:'}
         </span>
-        <span className="text-2xl font-bold text-gray-900">
+        <span className="text-lg font-bold text-slate-900">
           {score}{type === 'nps' ? '/10' : '/5'}
         </span>
       </div>
     )}
-    <p className="mt-8 text-sm text-gray-400">
-      Você já pode fechar esta aba. 👋
-    </p>
+    <p className="mt-5 text-xs text-slate-400">Você já pode fechar esta aba.</p>
   </div>
 );
 
-// ─── Type meta ───────────────────────────────────────────────────────────────
+// ─── Type meta ────────────────────────────────────────────────────────────────
 
-const TYPE_TAG = {
+const TYPE_LABEL = {
   nps: 'Pesquisa NPS',
-  csat_health: 'Pesquisa de Satisfação',
-  csat_onboarding: 'Avaliação de Onboarding',
-  csat_nps_follow: 'Pesquisa de Melhoria',
+  csat_health: 'Pesquisa CSAT',
+  csat_onboarding: 'CSAT — Onboarding',
+  csat_nps_follow: 'CSAT — Follow-up NPS',
 };
 
-// ─── Main ────────────────────────────────────────────────────────────────────
+// ─── Main ─────────────────────────────────────────────────────────────────────
 
 const SurveyResponsePage = () => {
   const params = new URLSearchParams(window.location.search);
@@ -406,9 +275,9 @@ const SurveyResponsePage = () => {
 
   if (!type || !token) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
-        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-10 max-w-md w-full text-center">
-          <p className="text-gray-400 text-sm">Link de pesquisa inválido ou expirado.</p>
+      <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
+        <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-8 max-w-md w-full text-center">
+          <p className="text-slate-500 text-sm">Link de pesquisa inválido.</p>
         </div>
       </div>
     );
@@ -417,88 +286,90 @@ const SurveyResponsePage = () => {
   const finalScore = submitted ? computeFinalScore() : null;
 
   return (
-    <div className="min-h-screen bg-gray-50 flex flex-col">
-      <Header />
+    <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
+      <div className="bg-white rounded-2xl shadow-sm border border-slate-100 w-full max-w-lg overflow-hidden">
 
-      <main className="flex-1 flex items-center justify-center py-12 px-4">
-        <div className="w-full max-w-xl">
-          {/* Survey type badge */}
-          <div className="flex justify-center mb-5">
-            <span
-              className="px-4 py-1.5 rounded-full text-xs font-bold uppercase tracking-wider text-white"
-              style={{ backgroundColor: BRAND_ORANGE }}
-            >
-              {TYPE_TAG[type] || 'Pesquisa'}
-            </span>
+        {/* Brand header */}
+        <div className="bg-slate-900 px-8 py-5 flex items-center gap-3">
+          <img
+            src="https://www.bravvius.com/wp-content/uploads/2025/12/bravvius_original-1024x270.png"
+            alt="Bravvius"
+            className="h-6 w-auto object-contain brightness-0 invert"
+            onError={(e) => { e.target.style.display = 'none'; }}
+          />
+          <div className="hidden">
+            <p className="text-white text-sm font-bold">Bravvius</p>
+            <p className="text-slate-400 text-xs">Customer Success</p>
           </div>
-
-          {/* Card */}
-          <div className="bg-white rounded-3xl shadow-sm border border-gray-100 overflow-hidden">
-            <div className="p-8 sm:p-10">
-              {submitted || alreadyAnswered ? (
-                alreadyAnswered && !submitted ? (
-                  <div className="text-center py-8">
-                    <div className="inline-flex items-center justify-center w-16 h-16 rounded-full mb-4" style={{ backgroundColor: '#FFF5F0' }}>
-                      <CheckCircle2 size={28} style={{ color: BRAND_ORANGE }} />
-                    </div>
-                    <h2 className="text-xl font-bold text-gray-900 mb-2">Já recebemos sua resposta!</h2>
-                    <p className="text-gray-400 text-sm">Você já respondeu esta pesquisa anteriormente. Obrigado!</p>
-                  </div>
-                ) : (
-                  <ThankYou type={type} score={finalScore} />
-                )
-              ) : (
-                <>
-                  {/* Greeting */}
-                  <p className="text-sm font-semibold mb-5" style={{ color: BRAND_ORANGE }}>
-                    Olá, {customerName} 👋
-                  </p>
-
-                  {type === 'nps' && <NpsForm score={score} setScore={setScore} />}
-                  {type === 'csat_health' && <CsatHealthForm score={score} setScore={setScore} />}
-                  {type === 'csat_onboarding' && (
-                    <CsatOnboardingForm scores={categoryScores} setScores={setCategoryScores} />
-                  )}
-                  {type === 'csat_nps_follow' && (
-                    <CsatNpsFollowForm
-                      scores={categoryScores}
-                      setScores={setCategoryScores}
-                      feedback={feedback}
-                      setFeedback={setFeedback}
-                    />
-                  )}
-
-                  {type !== 'csat_nps_follow' && (
-                    <div className="mb-7">
-                      <label className="block text-sm font-semibold text-gray-700 mb-2">
-                        Comentário <span className="text-gray-400 font-normal">(opcional)</span>
-                      </label>
-                      <textarea
-                        value={comment}
-                        onChange={(e) => setComment(e.target.value)}
-                        rows={3}
-                        placeholder="Compartilhe mais sobre sua experiência..."
-                        className="w-full px-4 py-3 text-sm border border-gray-200 rounded-xl focus:outline-none focus:ring-2 resize-none text-gray-700 placeholder-gray-300 bg-white"
-                      />
-                    </div>
-                  )}
-
-                  <button
-                    onClick={handleSubmit}
-                    disabled={!canSubmit}
-                    style={canSubmit ? { backgroundColor: BRAND_ORANGE } : {}}
-                    className="w-full disabled:opacity-40 disabled:cursor-not-allowed disabled:bg-gray-300 text-white font-semibold py-3.5 rounded-xl transition-opacity hover:opacity-90 text-sm"
-                  >
-                    Enviar resposta
-                  </button>
-                </>
-              )}
-            </div>
-          </div>
+          <span className={`ml-auto px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider ${
+            type === 'nps'
+              ? 'bg-blue-500/20 text-blue-300'
+              : 'bg-slate-500/20 text-slate-300'
+          }`}>
+            {TYPE_LABEL[type] || 'Pesquisa'}
+          </span>
         </div>
-      </main>
 
-      <Footer />
+        <div className="p-8">
+          {submitted || alreadyAnswered ? (
+            alreadyAnswered && !submitted ? (
+              <div className="text-center py-6">
+                <p className="text-slate-500 text-sm">Você já respondeu esta pesquisa. Obrigado!</p>
+              </div>
+            ) : (
+              <ThankYou type={type} score={finalScore} />
+            )
+          ) : (
+            <>
+              <p className="text-xs text-slate-400 font-semibold uppercase tracking-wider mb-2">
+                Olá, {customerName} 👋
+              </p>
+
+              {type === 'nps' && <NpsForm score={score} setScore={setScore} />}
+              {type === 'csat_health' && <CsatHealthForm score={score} setScore={setScore} />}
+              {type === 'csat_onboarding' && (
+                <CsatOnboardingForm scores={categoryScores} setScores={setCategoryScores} />
+              )}
+              {type === 'csat_nps_follow' && (
+                <CsatNpsFollowForm
+                  scores={categoryScores}
+                  setScores={setCategoryScores}
+                  feedback={feedback}
+                  setFeedback={setFeedback}
+                />
+              )}
+
+              {type !== 'csat_nps_follow' && (
+                <div className="mb-6">
+                  <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">
+                    Comentário <span className="font-normal normal-case">(opcional)</span>
+                  </label>
+                  <textarea
+                    value={comment}
+                    onChange={(e) => setComment(e.target.value)}
+                    rows={3}
+                    placeholder="Compartilhe mais sobre sua experiência..."
+                    className="w-full px-4 py-3 text-sm border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 resize-none text-slate-700 placeholder-slate-300"
+                  />
+                </div>
+              )}
+
+              <button
+                onClick={handleSubmit}
+                disabled={!canSubmit}
+                className="w-full bg-blue-600 hover:bg-blue-500 disabled:opacity-40 disabled:cursor-not-allowed text-white font-semibold py-3 rounded-xl transition-colors"
+              >
+                Enviar resposta
+              </button>
+
+              <div className="flex items-center justify-center gap-1.5 mt-4">
+                <ShieldCheck size={12} className="text-slate-300" />
+                <p className="text-[10px] text-slate-400">Suas respostas são confidenciais</p>
+              </div>
+            </>
+          )}
+        </div>
+      </div>
     </div>
   );
 };
