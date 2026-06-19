@@ -9,12 +9,17 @@ RUN npm ci
 COPY . .
 RUN npm run build
 
-# Stage 2 — serve
-FROM nginx:alpine
+# Stage 2 — serve com Node (Express)
+FROM node:20-alpine
 
-COPY --from=builder /app/dist /usr/share/nginx/html
-COPY nginx.conf /etc/nginx/conf.d/default.conf
+WORKDIR /app
+
+COPY --from=builder /app/dist ./dist
+COPY package*.json ./
+RUN npm ci --omit=dev
+
+COPY server.js ./
 
 EXPOSE 3000
 
-CMD ["nginx", "-g", "daemon off;"]
+CMD ["node", "server.js"]

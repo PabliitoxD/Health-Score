@@ -50,27 +50,21 @@ const applyDateFilter = (customers, dateFilter, customDateRange) => {
 const computeStats = (customers, globalStats) => {
   const count = customers.length;
   if (count === 0) {
-    return {
-      ...globalStats,
-      avgScore: 0, atRisk: 0, healthy: 0,
-      totalMRR: 0, arr: 0, arpu: 0, avgNps: 0, avgCsat: 0,
-    };
+    return { ...globalStats, avgScore: 0, atRisk: 0, healthy: 0, totalMRR: 0, arr: 0, arpu: 0 };
   }
   const totalMRR = customers.reduce((acc, c) => acc + c.mrr, 0);
   const avgScore = Math.round(customers.reduce((acc, c) => acc + c.score, 0) / count);
   const atRisk = customers.filter((c) => c.status === 'At Risk').length;
   const healthy = customers.filter((c) => c.status === 'Healthy').length;
   const arpu = totalMRR / count;
-  const promoters = customers.filter((c) => c.nps >= 70).length;
-  const detractors = customers.filter((c) => c.nps < 0).length;
-  const avgNps = Math.round(((promoters - detractors) / count) * 100);
-  const avgCsat = Math.round(customers.reduce((acc, c) => acc + c.csat, 0) / count);
+  const multiAcquirerCount = customers.filter((c) => c.multiAcquirer).length;
 
   return {
-    ...globalStats, // NRR, LTV, CAC, Logo Churn — métricas de portfolio, não mudam com o filtro
+    ...globalStats,
     avgScore, atRisk, healthy,
     totalMRR, arr: totalMRR * 12, arpu,
-    avgNps, avgCsat,
+    activeCount: count,
+    multiAcquirerRate: (multiAcquirerCount / count) * 100,
   };
 };
 
@@ -93,7 +87,7 @@ export const useCustomers = () => {
           getStats(),
         ]);
         setAllCustomers(customersData);
-        setGlobalStats(statsData);
+        setGlobalStats(statsData || {});
       } catch (error) {
         console.error('Erro ao carregar dados:', error);
       } finally {

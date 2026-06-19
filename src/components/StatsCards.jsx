@@ -1,19 +1,19 @@
 import React, { useState } from 'react';
 import {
-  Activity, AlertTriangle, CheckCircle2, TrendingUp, TrendingDown,
-  Users, Award, BarChart2, ArrowUpRight, ArrowDownRight, Info,
+  Activity, AlertTriangle, CheckCircle2, TrendingDown,
+  Users, CreditCard, ArrowUpRight, ArrowDownRight, Info, ShieldCheck,
 } from 'lucide-react';
 import { formatCurrency, formatPercent } from '../utils/formatters';
 
 const METRIC_TOOLTIPS = {
-  avgScore: 'Pontuação média de todos os clientes ativos. Calculada com base em Engajamento (15%), Performance de aprovação (65%) e Adoção Técnica (20%).',
+  avgScore: 'Pontuação média de saúde dos clientes ativos. Calculada com base em Engajamento (40%), Adoção Técnica (35%) e Saúde Financeira (25%).',
   atRisk: 'Clientes com Health Score abaixo de 50. Indicam alto risco de churn e requerem ação imediata do time de CS.',
-  totalMRR: 'Receita Recorrente Mensal: soma dos valores mensais dos planos de assinatura ativos. Não inclui take rate sobre transações.',
-  nrr: 'Net Revenue Retention: acima de 100% indica que a receita cresce organicamente via upgrades, compensando os cancelamentos.',
-  ltvCac: 'Relação entre o valor de vida do cliente (LTV) e o custo de aquisição (CAC). Referência saudável: ≥ 3x.',
-  logoChurn: 'Percentual de clientes que cancelaram no mês em relação ao total ativo no início do período. Não inclui trials.',
-  nps: 'Net Promoter Score: % Promotores (nota 9-10) menos % Detratores (nota 0-6). Mede a lealdade relacional da base.',
-  csat: 'Customer Satisfaction Score médio do Onboarding. Baseado em respostas coletadas no Dia 30 de cada cliente.',
+  healthy: 'Clientes com Health Score acima de 75. Base saudável e com menor propensão a churn.',
+  totalMRR: 'Receita Recorrente Mensal: soma dos valores mensais dos planos de assinatura ativos.',
+  logoChurn: 'Percentual de clientes que cancelaram em relação ao total ativo no início do período.',
+  cancelledCount: 'Total de clientes cancelados com justificativa registrada no período.',
+  multiAcquirer: 'Percentual de clientes que utilizam mais de uma adquirente. Indica maior adoção da plataforma.',
+  activeCount: 'Total de clientes com plano ativo no momento.',
 };
 
 const MetricTooltip = ({ text }) => {
@@ -60,44 +60,40 @@ const StatsCards = ({ stats }) => {
   const cards = [
     {
       icon: <Activity size={18} />, iconBg: 'bg-blue-50 dark:bg-blue-500/10', iconColor: 'text-blue-600 dark:text-blue-400',
-      label: 'Média de Saúde', value: `${stats.avgScore} / 100`, tooltipKey: 'avgScore',
+      label: 'Média de Saúde', value: `${stats.avgScore ?? 0} / 100`, tooltipKey: 'avgScore',
     },
     {
       icon: <AlertTriangle size={18} />, iconBg: 'bg-rose-50 dark:bg-rose-500/10', iconColor: 'text-rose-600 dark:text-rose-400',
-      label: 'Clientes em Risco', value: stats.atRisk, tooltipKey: 'atRisk',
-    },
-    {
-      icon: <TrendingUp size={18} />, iconBg: 'bg-indigo-50 dark:bg-indigo-500/10', iconColor: 'text-indigo-600 dark:text-indigo-400',
-      label: 'MRR Total', value: formatCurrency(stats.totalMRR), tooltipKey: 'totalMRR',
-    },
-    {
-      icon: <BarChart2 size={18} />,
-      iconBg: stats.nrr >= 100 ? 'bg-emerald-50 dark:bg-emerald-500/10' : 'bg-amber-50 dark:bg-amber-500/10',
-      iconColor: stats.nrr >= 100 ? 'text-emerald-600 dark:text-emerald-400' : 'text-amber-600 dark:text-amber-400',
-      label: 'NRR', value: formatPercent(stats.nrr),
-      badge: stats.nrr >= 100 ? 'Expansão' : 'Contração', badgeUp: stats.nrr >= 100,
-      tooltipKey: 'nrr',
-    },
-    {
-      icon: <Award size={18} />, iconBg: 'bg-violet-50 dark:bg-violet-500/10', iconColor: 'text-violet-600 dark:text-violet-400',
-      label: 'LTV / CAC', value: `${stats.ltvCacRatio.toFixed(1)}x`,
-      badge: stats.ltvCacRatio >= 3 ? 'Saudável' : 'Alerta', badgeUp: stats.ltvCacRatio >= 3,
-      tooltipKey: 'ltvCac',
-    },
-    {
-      icon: <TrendingDown size={18} />, iconBg: 'bg-rose-50 dark:bg-rose-500/10', iconColor: 'text-rose-600 dark:text-rose-400',
-      label: 'Logo Churn', value: formatPercent(stats.logoChurnRate), tooltipKey: 'logoChurn',
-    },
-    {
-      icon: <Users size={18} />,
-      iconBg: stats.avgNps >= 50 ? 'bg-emerald-50 dark:bg-emerald-500/10' : stats.avgNps >= 0 ? 'bg-amber-50 dark:bg-amber-500/10' : 'bg-rose-50 dark:bg-rose-500/10',
-      iconColor: stats.avgNps >= 50 ? 'text-emerald-600 dark:text-emerald-400' : stats.avgNps >= 0 ? 'text-amber-600 dark:text-amber-400' : 'text-rose-600 dark:text-rose-400',
-      label: 'NPS Médio', value: stats.avgNps > 0 ? `+${stats.avgNps}` : String(stats.avgNps),
-      tooltipKey: 'nps',
+      label: 'Clientes em Risco', value: stats.atRisk ?? 0, tooltipKey: 'atRisk',
     },
     {
       icon: <CheckCircle2 size={18} />, iconBg: 'bg-emerald-50 dark:bg-emerald-500/10', iconColor: 'text-emerald-600 dark:text-emerald-400',
-      label: 'CSAT Médio', value: formatPercent(stats.avgCsat, 0), tooltipKey: 'csat',
+      label: 'Clientes Saudáveis', value: stats.healthy ?? 0, tooltipKey: 'healthy',
+    },
+    {
+      icon: <CreditCard size={18} />, iconBg: 'bg-indigo-50 dark:bg-indigo-500/10', iconColor: 'text-indigo-600 dark:text-indigo-400',
+      label: 'MRR Total', value: formatCurrency(stats.totalMRR ?? 0), tooltipKey: 'totalMRR',
+    },
+    {
+      icon: <TrendingDown size={18} />, iconBg: 'bg-rose-50 dark:bg-rose-500/10', iconColor: 'text-rose-600 dark:text-rose-400',
+      label: 'Logo Churn', value: formatPercent(stats.logoChurnRate ?? 0), tooltipKey: 'logoChurn',
+    },
+    {
+      icon: <Users size={18} />, iconBg: 'bg-slate-50 dark:bg-slate-700/30', iconColor: 'text-slate-600 dark:text-slate-400',
+      label: 'Cancelamentos', value: stats.cancelledCount ?? 0, tooltipKey: 'cancelledCount',
+    },
+    {
+      icon: <ShieldCheck size={18} />,
+      iconBg: (stats.multiAcquirerRate ?? 0) >= 50 ? 'bg-emerald-50 dark:bg-emerald-500/10' : 'bg-amber-50 dark:bg-amber-500/10',
+      iconColor: (stats.multiAcquirerRate ?? 0) >= 50 ? 'text-emerald-600 dark:text-emerald-400' : 'text-amber-600 dark:text-amber-400',
+      label: 'Multi-adquirente', value: formatPercent(stats.multiAcquirerRate ?? 0),
+      badge: (stats.multiAcquirerRate ?? 0) >= 50 ? 'Boa adoção' : 'Baixa adoção',
+      badgeUp: (stats.multiAcquirerRate ?? 0) >= 50,
+      tooltipKey: 'multiAcquirer',
+    },
+    {
+      icon: <Users size={18} />, iconBg: 'bg-violet-50 dark:bg-violet-500/10', iconColor: 'text-violet-600 dark:text-violet-400',
+      label: 'Clientes Ativos', value: stats.activeCount ?? 0, tooltipKey: 'activeCount',
     },
   ];
 
