@@ -10,3 +10,10 @@ export const getStats = async () => {
   if (!res.ok) throw new Error('Falha ao buscar estatísticas');
   return res.json();
 };
+
+export const getCancellations = async () => {
+  const res = await fetch('/api/cancellations');
+  if (!res.ok) throw new Error('Falha ao buscar cancelamentos');
+  const { cancellations } = await res.json();
+  return cancellations;
+};
