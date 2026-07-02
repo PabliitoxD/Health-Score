@@ -14,12 +14,12 @@ const Header = ({ activeView, setActiveView }) => {
   const { logout } = useAuth();
 
   return (
-    <div className="bg-white dark:bg-slate-900 border-b border-slate-100 dark:border-slate-800 sticky top-0 z-10">
+    <div className="glass-subtle border-b border-slate-100 dark:border-slate-800 sticky top-0 z-10">
       <div className="max-w-7xl mx-auto px-4 md:px-8">
         <div className="flex items-center justify-between h-16">
           {/* Brand */}
           <div className="flex items-center gap-3">
-            <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center flex-shrink-0">
+            <div className="w-8 h-8 bg-brand-600 rounded-lg flex items-center justify-center flex-shrink-0">
               <span className="text-white font-bold text-xs">HS</span>
             </div>
             <div className="hidden sm:block">
@@ -36,7 +36,7 @@ const Header = ({ activeView, setActiveView }) => {
                 onClick={() => setActiveView(id)}
                 className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
                   activeView === id
-                    ? 'bg-blue-50 dark:bg-blue-500/10 text-blue-600 dark:text-blue-400'
+                    ? 'bg-brand-50 dark:bg-brand-500/10 text-brand-600 dark:text-brand-400'
                     : 'text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-50 dark:hover:bg-slate-800'
                 }`}
               >

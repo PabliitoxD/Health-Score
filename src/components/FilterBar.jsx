@@ -1,5 +1,6 @@
 import React from 'react';
 import { Calendar, X } from 'lucide-react';
+import GlassCard from './ui/GlassCard';
 
 const FILTERS = [
   { id: 'today', label: 'Hoje' },
@@ -14,7 +15,7 @@ const FilterBar = ({ dateFilter, setDateFilter, customDateRange, setCustomDateRa
 
   return (
     <div className="flex justify-center mb-6">
-      <div className="inline-flex flex-wrap items-center gap-2 bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-2xl shadow-md px-4 py-3">
+      <GlassCard variant="subtle" className="inline-flex flex-wrap items-center gap-2 shadow-md px-4 py-3">
         <span className="text-[11px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider pr-1">
           Período
         </span>
@@ -25,7 +26,7 @@ const FilterBar = ({ dateFilter, setDateFilter, customDateRange, setCustomDateRa
             onClick={() => handleClick(id)}
             className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-semibold transition-all ${
               dateFilter === id
-                ? 'bg-blue-600 text-white shadow-sm shadow-blue-200 dark:shadow-blue-900/30'
+                ? 'bg-brand-600 text-white shadow-sm shadow-brand-200 dark:shadow-brand-900/30'
                 : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700'
             }`}
           >
@@ -41,7 +42,7 @@ const FilterBar = ({ dateFilter, setDateFilter, customDateRange, setCustomDateRa
               value={customDateRange.from}
               max={customDateRange.to || undefined}
               onChange={(e) => setCustomDateRange((p) => ({ ...p, from: e.target.value }))}
-              className="px-2.5 py-1.5 text-xs border border-slate-200 dark:border-slate-700 rounded-lg bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+              className="px-2.5 py-1.5 text-xs border border-slate-200 dark:border-slate-700 rounded-lg bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 focus:outline-none focus:ring-2 focus:ring-brand-500/20"
             />
             <span className="text-slate-400 text-xs">até</span>
             <input
@@ -49,7 +50,7 @@ const FilterBar = ({ dateFilter, setDateFilter, customDateRange, setCustomDateRa
               value={customDateRange.to}
               min={customDateRange.from || undefined}
               onChange={(e) => setCustomDateRange((p) => ({ ...p, to: e.target.value }))}
-              className="px-2.5 py-1.5 text-xs border border-slate-200 dark:border-slate-700 rounded-lg bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+              className="px-2.5 py-1.5 text-xs border border-slate-200 dark:border-slate-700 rounded-lg bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 focus:outline-none focus:ring-2 focus:ring-brand-500/20"
             />
           </div>
         )}
@@ -63,7 +64,7 @@ const FilterBar = ({ dateFilter, setDateFilter, customDateRange, setCustomDateRa
             <X size={13} />
           </button>
         )}
-      </div>
+      </GlassCard>
     </div>
   );
 };

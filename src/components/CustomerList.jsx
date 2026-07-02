@@ -1,6 +1,7 @@
 import React from 'react';
 import { Search, ArrowUpRight } from 'lucide-react';
 import { getScoreColor } from '../utils/formatters';
+import GlassCard from './ui/GlassCard';
 
 const STATUS_LABELS = {
   Healthy: 'Saudável',
@@ -21,19 +22,19 @@ const CustomerList = ({
   selectedCustomer, setSelectedCustomer,
 }) => (
   <div className="lg:col-span-2 space-y-4">
-    <div className="bg-white dark:bg-slate-900 p-4 rounded-xl shadow-sm border border-slate-100 dark:border-slate-800 flex flex-col md:flex-row gap-4 items-center">
+    <GlassCard variant="subtle" className="p-4 flex flex-col md:flex-row gap-4 items-center">
       <div className="relative flex-1 w-full">
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
         <input
           type="text"
           placeholder="Pesquisar cliente..."
-          className="w-full pl-10 pr-4 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/20 text-sm text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500"
+          className="w-full pl-10 pr-4 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-500/20 text-sm text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500"
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
         />
       </div>
       <select
-        className="bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-700 dark:text-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-500/20 w-full md:w-auto"
+        className="bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-700 dark:text-slate-300 focus:outline-none focus:ring-2 focus:ring-brand-500/20 w-full md:w-auto"
         value={filterStatus}
         onChange={(e) => setFilterStatus(e.target.value)}
       >
@@ -42,7 +43,7 @@ const CustomerList = ({
         <option value="Attention">Atenção</option>
         <option value="At Risk">Em Risco</option>
       </select>
-    </div>
+    </GlassCard>
 
     <div className="bg-white dark:bg-slate-900 rounded-xl shadow-sm border border-slate-100 dark:border-slate-800 overflow-hidden">
       <table className="w-full text-left border-collapse">
@@ -59,7 +60,7 @@ const CustomerList = ({
             <tr
               key={customer.id}
               className={`hover:bg-slate-50/80 dark:hover:bg-slate-800/50 cursor-pointer transition-colors ${
-                selectedCustomer?.id === customer.id ? 'bg-blue-50/50 dark:bg-blue-500/5' : ''
+                selectedCustomer?.id === customer.id ? 'bg-brand-50/50 dark:bg-brand-500/5' : ''
               }`}
               onClick={() => setSelectedCustomer(customer)}
             >
@@ -93,7 +94,7 @@ const CustomerList = ({
                 </div>
               </td>
               <td className="px-6 py-4 text-right">
-                <button className="text-slate-400 hover:text-blue-600 transition-colors">
+                <button className="text-slate-400 hover:text-brand-600 transition-colors">
                   <ArrowUpRight size={18} />
                 </button>
               </td>

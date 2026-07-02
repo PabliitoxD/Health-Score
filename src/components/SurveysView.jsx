@@ -3,6 +3,7 @@ import { Clock, CheckCircle2, AlertCircle, RefreshCw, Send, Users } from 'lucide
 import { getSurveys, getResponses } from '../utils/surveyStorage';
 import { getEligibleCustomers, SURVEY_META } from '../utils/surveyEligibility';
 import SurveyDispatchModal from './SurveyDispatchModal';
+import GlassCard from './ui/GlassCard';
 
 const TYPE_ORDER = ['nps', 'csat_onboarding', 'csat_health', 'csat_nps_follow'];
 
@@ -36,7 +37,7 @@ const EligibleCard = ({ type, customers, onDispatch }) => {
   if (count === 0) return null;
 
   return (
-    <div className={`bg-white dark:bg-slate-900 rounded-2xl border ${meta.borderCls} shadow-sm overflow-hidden`}>
+    <GlassCard variant="subtle" className={`border ${meta.borderCls} overflow-hidden`}>
       <div className="p-5">
         <div className="flex items-start justify-between gap-3 mb-3">
           <div className="flex items-center gap-3">
@@ -75,7 +76,7 @@ const EligibleCard = ({ type, customers, onDispatch }) => {
           Disparar para {count} cliente{count !== 1 ? 's' : ''}
         </button>
       </div>
-    </div>
+    </GlassCard>
   );
 };
 
@@ -122,12 +123,12 @@ const SurveysView = ({ customers = [] }) => {
             { label: 'Total Enviadas', value: enriched.length, color: 'text-slate-900 dark:text-white' },
             { label: 'Respondidas', value: respondedTotal, color: 'text-emerald-600 dark:text-emerald-400' },
             { label: 'Aguardando', value: pendingTotal, color: 'text-amber-600 dark:text-amber-400' },
-            { label: 'Elegíveis agora', value: totalEligible, color: 'text-blue-600 dark:text-blue-400' },
+            { label: 'Elegíveis agora', value: totalEligible, color: 'text-brand-600 dark:text-brand-400' },
           ].map(({ label, value, color }) => (
-            <div key={label} className="bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-2xl p-5 shadow-sm">
+            <GlassCard key={label} variant="default" className="p-5">
               <p className="text-[11px] text-slate-400 dark:text-slate-500 uppercase font-bold tracking-wider mb-1">{label}</p>
               <p className={`text-2xl font-bold ${color}`}>{value}</p>
-            </div>
+            </GlassCard>
           ))}
         </div>
 
@@ -135,7 +136,7 @@ const SurveysView = ({ customers = [] }) => {
         {totalEligible > 0 && (
           <div className="mb-8">
             <h2 className="text-sm font-bold text-slate-900 dark:text-white mb-4 flex items-center gap-2">
-              <span className="w-2 h-2 rounded-full bg-blue-500 inline-block"></span>
+              <span className="w-2 h-2 rounded-full bg-brand-500 inline-block"></span>
               Prontos para disparo
             </h2>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">

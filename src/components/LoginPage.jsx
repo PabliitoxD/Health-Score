@@ -22,11 +22,15 @@ const LoginPage = () => {
   };
 
   return (
-    <div className="min-h-screen bg-slate-950 flex items-center justify-center p-4">
-      <div className="w-full max-w-md">
+    <div className="relative min-h-screen bg-slate-950 flex items-center justify-center p-4 overflow-hidden">
+      {/* Glow decorativo */}
+      <div className="pointer-events-none absolute -top-32 -left-32 w-96 h-96 bg-brand-600/30 rounded-full blur-3xl" />
+      <div className="pointer-events-none absolute -bottom-32 -right-32 w-96 h-96 bg-accent-500/20 rounded-full blur-3xl" />
+
+      <div className="relative w-full max-w-md">
         {/* Logo area */}
         <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-14 h-14 bg-blue-600 rounded-2xl mb-4 shadow-lg shadow-blue-900/50">
+          <div className="inline-flex items-center justify-center w-14 h-14 bg-brand-600 rounded-2xl mb-4 shadow-lg shadow-brand-900/50">
             <ShieldCheck size={28} className="text-white" />
           </div>
           <h1 className="text-2xl font-bold text-white">Health Score</h1>
@@ -34,7 +38,7 @@ const LoginPage = () => {
         </div>
 
         {/* Card */}
-        <div className="bg-slate-900 border border-slate-800 rounded-2xl p-8 shadow-2xl">
+        <div className="glass-panel-strong rounded-2xl p-8 shadow-glass-dark">
           <h2 className="text-lg font-semibold text-white mb-6">Entrar na plataforma</h2>
 
           <form onSubmit={handleSubmit} className="space-y-4">
@@ -49,7 +53,7 @@ const LoginPage = () => {
                 required
                 autoComplete="username"
                 placeholder="Digite seu usuário"
-                className="w-full px-4 py-3 bg-slate-800 border border-slate-700 rounded-xl text-white placeholder-slate-500 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/40 focus:border-blue-500 transition-colors"
+                className="w-full px-4 py-3 bg-slate-800/60 border border-slate-700 rounded-xl text-white placeholder-slate-500 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500/40 focus:border-brand-500 transition-colors"
               />
             </div>
 
@@ -65,7 +69,7 @@ const LoginPage = () => {
                   required
                   autoComplete="current-password"
                   placeholder="Digite sua senha"
-                  className="w-full px-4 py-3 pr-11 bg-slate-800 border border-slate-700 rounded-xl text-white placeholder-slate-500 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/40 focus:border-blue-500 transition-colors"
+                  className="w-full px-4 py-3 pr-11 bg-slate-800/60 border border-slate-700 rounded-xl text-white placeholder-slate-500 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500/40 focus:border-brand-500 transition-colors"
                 />
                 <button
                   type="button"
@@ -86,7 +90,7 @@ const LoginPage = () => {
             <button
               type="submit"
               disabled={loading}
-              className="w-full bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white font-semibold py-3 rounded-xl transition-colors shadow-lg shadow-blue-900/30 mt-2"
+              className="w-full bg-brand-600 hover:bg-brand-500 disabled:opacity-50 text-white font-semibold py-3 rounded-xl transition-colors shadow-lg shadow-brand-900/30 mt-2"
             >
               {loading ? 'Verificando...' : 'Entrar'}
             </button>

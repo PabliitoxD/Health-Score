@@ -140,7 +140,7 @@ export const MRRChart = ({ customers }) => {
         <XAxis dataKey="name" tick={{ fill: tickColor, fontSize: 11 }} tickLine={false} axisLine={false} />
         <YAxis tickFormatter={(v) => `R$${(v / 1000).toFixed(1)}k`} tick={{ fill: tickColor, fontSize: 11 }} tickLine={false} axisLine={false} width={52} />
         <Tooltip content={<CustomTooltipMRR />} cursor={{ fill: isDark ? '#1e293b' : '#f8fafc' }} />
-        <Bar dataKey="mrr" fill="#3b82f6" radius={[6, 6, 0, 0]} maxBarSize={40} />
+        <Bar dataKey="mrr" fill="#4f46e5" radius={[6, 6, 0, 0]} maxBarSize={40} />
       </BarChart>
     </ResponsiveContainer>
   );

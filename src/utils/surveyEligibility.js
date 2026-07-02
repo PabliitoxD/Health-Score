@@ -59,11 +59,11 @@ export const SURVEY_META = {
   nps: {
     label: 'NPS',
     description: '30 dias após encerramento do trial com plano ativo',
-    color: 'blue',
-    badgeCls: 'bg-blue-100 dark:bg-blue-500/10 text-blue-700 dark:text-blue-400',
-    btnCls: 'bg-blue-600 hover:bg-blue-500 text-white',
-    borderCls: 'border-blue-200 dark:border-blue-500/20',
-    iconBg: 'bg-blue-100 dark:bg-blue-500/10 text-blue-600 dark:text-blue-400',
+    color: 'brand',
+    badgeCls: 'bg-brand-100 dark:bg-brand-500/10 text-brand-700 dark:text-brand-400',
+    btnCls: 'bg-brand-600 hover:bg-brand-500 text-white',
+    borderCls: 'border-brand-200 dark:border-brand-500/20',
+    iconBg: 'bg-brand-100 dark:bg-brand-500/10 text-brand-600 dark:text-brand-400',
   },
   csat_onboarding: {
     label: 'CSAT Onboarding',

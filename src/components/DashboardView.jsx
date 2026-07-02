@@ -2,12 +2,13 @@ import React from 'react';
 import StatsCards from './StatsCards';
 import FilterBar from './FilterBar';
 import { HealthScoreChart, StatusDistributionChart, MRRChart } from './Charts';
+import GlassCard from './ui/GlassCard';
 
 const ChartCard = ({ title, children }) => (
-  <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-100 dark:border-slate-800 shadow-sm p-6">
+  <GlassCard variant="subtle" className="p-6">
     <h3 className="text-sm font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest mb-4">{title}</h3>
     {children}
-  </div>
+  </GlassCard>
 );
 
 const EmptyState = () => (
@@ -59,9 +60,9 @@ const DashboardView = ({ stats, allCustomers, loading, dateFilter, setDateFilter
         </div>
       ) : (
         <div className="max-w-7xl mx-auto">
-          <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-100 dark:border-slate-800 shadow-sm">
+          <GlassCard variant="subtle">
             <EmptyState />
-          </div>
+          </GlassCard>
         </div>
       )}
     </div>

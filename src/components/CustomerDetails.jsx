@@ -2,6 +2,7 @@ import React from 'react';
 import { Users, AlertTriangle, MessageSquare, Zap, CreditCard, TrendingUp } from 'lucide-react';
 import { formatCurrency, formatJoinDate } from '../utils/formatters';
 import { formatLastLogin, formatNextCharge } from '../utils/healthScore';
+import GlassCard from './ui/GlassCard';
 
 const STATUS_LABELS = {
   Healthy: { label: 'Saudável', cls: 'bg-emerald-100 dark:bg-emerald-500/10 text-emerald-700 dark:text-emerald-400' },
@@ -51,7 +52,7 @@ const CustomerDetails = ({ selectedCustomer }) => {
 
   return (
     <div className="lg:col-span-1">
-      <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-800 overflow-hidden sticky top-28">
+      <GlassCard variant="strong" className="overflow-hidden sticky top-28">
         {/* Header */}
         <div className="p-6 border-b border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/30">
           <div className="flex justify-between items-start mb-3">
@@ -67,7 +68,7 @@ const CustomerDetails = ({ selectedCustomer }) => {
             <button className="flex-1 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 py-2 rounded-lg text-xs font-semibold hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors">
               Histórico
             </button>
-            <button className="flex-1 bg-blue-600 hover:bg-blue-500 text-white py-2 rounded-lg text-xs font-semibold shadow-md shadow-blue-100 dark:shadow-blue-900/20 transition-colors">
+            <button className="flex-1 bg-brand-600 hover:bg-brand-500 text-white py-2 rounded-lg text-xs font-semibold shadow-md shadow-brand-100 dark:shadow-brand-900/20 transition-colors">
               Agendar Call
             </button>
           </div>
@@ -78,7 +79,7 @@ const CustomerDetails = ({ selectedCustomer }) => {
           <div>
             <h4 className="text-xs font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-4">Composição do Score</h4>
             <div className="space-y-4">
-              <ScoreBar icon={<MessageSquare size={13} className="text-blue-500" />} label="Engajamento" weight={40} value={c.engajamento} color="bg-blue-500" />
+              <ScoreBar icon={<MessageSquare size={13} className="text-accent-500" />} label="Engajamento" weight={40} value={c.engajamento} color="bg-accent-500" />
               <ScoreBar icon={<CreditCard size={13} className="text-indigo-500" />} label="Adoção Técnica" weight={35} value={c.adocao} color="bg-indigo-500" />
               <ScoreBar icon={<Zap size={13} className="text-amber-500" />} label="Saúde Financeira" weight={25} value={c.saudeFinanceira} color="bg-amber-500" />
             </div>
@@ -149,7 +150,7 @@ const CustomerDetails = ({ selectedCustomer }) => {
             </div>
           )}
         </div>
-      </div>
+      </GlassCard>
     </div>
   );
 };

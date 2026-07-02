@@ -2,6 +2,7 @@ import React, { useState, useMemo } from 'react';
 import { X, Copy, Check, MessageCircle, Mail, Link, ChevronDown, ChevronUp } from 'lucide-react';
 import { generateToken, saveSurvey, buildSurveyUrl, buildWhatsAppUrl, buildMailtoUrl } from '../utils/surveyStorage';
 import { SURVEY_META } from '../utils/surveyEligibility';
+import GlassCard from './ui/GlassCard';
 
 const CustomerRow = ({ customer, type }) => {
   const [phone, setPhone] = useState('');
@@ -74,7 +75,7 @@ const CustomerRow = ({ customer, type }) => {
             value={phone}
             onChange={(e) => setPhone(e.target.value)}
             placeholder="WhatsApp (ex: 5511999999999) — opcional"
-            className="w-full px-3 py-2 text-sm border border-slate-200 dark:border-slate-700 rounded-lg bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 placeholder-slate-300 dark:placeholder-slate-600 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+            className="w-full px-3 py-2 text-sm border border-slate-200 dark:border-slate-700 rounded-lg bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 placeholder-slate-300 dark:placeholder-slate-600 focus:outline-none focus:ring-2 focus:ring-brand-500/20"
           />
           <div className="flex items-center gap-2">
             <div className="flex-1 flex items-center gap-2 px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg overflow-hidden">
@@ -101,7 +102,7 @@ const CustomerRow = ({ customer, type }) => {
             </button>
             <button
               onClick={handleEmail}
-              className="flex items-center justify-center gap-2 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-xs font-semibold transition-colors"
+              className="flex items-center justify-center gap-2 py-2 bg-brand-600 hover:bg-brand-500 text-white rounded-lg text-xs font-semibold transition-colors"
             >
               <Mail size={14} /> E-mail
             </button>
@@ -117,7 +118,7 @@ const SurveyDispatchModal = ({ type, customers, onClose }) => {
 
   return (
     <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-      <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl w-full max-w-lg border border-slate-100 dark:border-slate-800 overflow-hidden max-h-[90vh] flex flex-col">
+      <GlassCard variant="strong" className="shadow-2xl w-full max-w-lg overflow-hidden max-h-[90vh] flex flex-col">
         <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 dark:border-slate-800 flex-shrink-0">
           <div>
             <h2 className="text-base font-bold text-slate-900 dark:text-white">
@@ -150,7 +151,7 @@ const SurveyDispatchModal = ({ type, customers, onClose }) => {
             Fechar
           </button>
         </div>
-      </div>
+      </GlassCard>
     </div>
   );
 };
