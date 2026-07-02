@@ -87,9 +87,10 @@ const SurveysView = ({ customers = [] }) => {
   const [responses, setResponses] = useState([]);
   const [modal, setModal] = useState(null); // survey type key
 
-  const refresh = () => {
-    setSurveys(getSurveys());
-    setResponses(getResponses());
+  const refresh = async () => {
+    const [s, r] = await Promise.all([getSurveys(), getResponses()]);
+    setSurveys(s);
+    setResponses(r);
   };
 
   useEffect(() => { refresh(); }, []);

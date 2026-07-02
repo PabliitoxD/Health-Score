@@ -15,9 +15,9 @@ const CustomerRow = ({ customer, type }) => {
     return { token: t, link: buildSurveyUrl(t, type, customer.id, customer.name) };
   }, [customer.id, type]);
 
-  const ensureSaved = () => {
+  const ensureSaved = async () => {
     if (!saved) {
-      saveSurvey({
+      await saveSurvey({
         token,
         type,
         customerId: customer.id,
@@ -29,21 +29,23 @@ const CustomerRow = ({ customer, type }) => {
     }
   };
 
+  // window.open/clipboard disparam antes do await pra nao perder o gesto do
+  // usuario (depois de um await, alguns navegadores bloqueiam o popup).
   const handleCopy = () => {
-    ensureSaved();
     navigator.clipboard.writeText(link);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
+    ensureSaved();
   };
 
   const handleWhatsApp = () => {
-    ensureSaved();
     window.open(buildWhatsAppUrl(link, customer.name, type, phone), '_blank');
+    ensureSaved();
   };
 
   const handleEmail = () => {
-    ensureSaved();
     window.open(buildMailtoUrl(link, customer.name, type), '_self');
+    ensureSaved();
   };
 
   return (

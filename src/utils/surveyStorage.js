@@ -1,34 +1,47 @@
-const SURVEYS_KEY = 'hs_surveys';
-const RESPONSES_KEY = 'hs_responses';
-
 export const generateToken = () =>
   Date.now().toString(36) + Math.random().toString(36).substr(2, 6);
 
-export const getSurveys = () =>
-  JSON.parse(localStorage.getItem(SURVEYS_KEY) || '[]');
-
-export const saveSurvey = (survey) => {
-  const surveys = getSurveys();
-  surveys.unshift(survey);
-  localStorage.setItem(SURVEYS_KEY, JSON.stringify(surveys));
+export const getSurveys = async () => {
+  const res = await fetch('/api/surveys');
+  if (!res.ok) throw new Error('Falha ao buscar pesquisas');
+  const { surveys } = await res.json();
+  return surveys;
 };
 
-export const getResponses = () =>
-  JSON.parse(localStorage.getItem(RESPONSES_KEY) || '[]');
-
-export const saveResponse = (response) => {
-  const responses = getResponses();
-  // remove previous response for same token if exists
-  const filtered = responses.filter((r) => r.token !== response.token);
-  filtered.push(response);
-  localStorage.setItem(RESPONSES_KEY, JSON.stringify(filtered));
+export const saveSurvey = async (survey) => {
+  const res = await fetch('/api/surveys', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(survey),
+  });
+  if (!res.ok) throw new Error('Falha ao salvar pesquisa');
 };
 
-export const getResponseByToken = (token) =>
-  getResponses().find((r) => r.token === token) || null;
+export const getResponses = async () => {
+  const res = await fetch('/api/survey-responses');
+  if (!res.ok) throw new Error('Falha ao buscar respostas');
+  const { responses } = await res.json();
+  return responses;
+};
 
-export const getSurveyByToken = (token) =>
-  getSurveys().find((s) => s.token === token) || null;
+export const saveResponse = async (response) => {
+  const res = await fetch('/api/survey-responses', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(response),
+  });
+  if (!res.ok) throw new Error('Falha ao salvar resposta');
+};
+
+export const getResponseByToken = async (token) => {
+  const responses = await getResponses();
+  return responses.find((r) => r.token === token) || null;
+};
+
+export const getSurveyByToken = async (token) => {
+  const surveys = await getSurveys();
+  return surveys.find((s) => s.token === token) || null;
+};
 
 export const buildSurveyUrl = (token, type, customerId, customerName) => {
   const base = window.location.origin + window.location.pathname;

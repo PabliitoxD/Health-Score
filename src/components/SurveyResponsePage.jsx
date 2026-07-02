@@ -237,7 +237,11 @@ const SurveyResponsePage = () => {
   const [alreadyAnswered, setAlreadyAnswered] = useState(false);
 
   useEffect(() => {
-    if (token && getResponseByToken(token)) setAlreadyAnswered(true);
+    if (!token) return;
+    (async () => {
+      const existing = await getResponseByToken(token);
+      if (existing) setAlreadyAnswered(true);
+    })();
   }, [token]);
 
   const isMultiCategory = type === 'csat_onboarding' || type === 'csat_nps_follow';
@@ -252,12 +256,12 @@ const SurveyResponsePage = () => {
     return vals.length > 0 ? Math.round(vals.reduce((a, b) => a + b, 0) / vals.length) : 0;
   };
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (!canSubmit) return;
     const finalScore = computeFinalScore();
-    saveResponse({
+    await saveResponse({
       token,
-      customerId: Number(customerId),
+      customerId,
       type,
       score: finalScore,
       ...(isMultiCategory && { scores: categoryScores }),
@@ -265,11 +269,6 @@ const SurveyResponsePage = () => {
       comment,
       respondedAt: new Date().toISOString(),
     });
-    const stored = JSON.parse(localStorage.getItem('hs_surveys') || '[]');
-    localStorage.setItem(
-      'hs_surveys',
-      JSON.stringify(stored.map((s) => (s.token === token ? { ...s, status: 'responded', score: finalScore } : s)))
-    );
     setSubmitted(true);
   };
 
