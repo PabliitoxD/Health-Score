@@ -2,6 +2,7 @@ import express from 'express';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 import { mockCustomersRaw, mockCancellations } from './server/fixtures/mockCustomers.js';
+import { mockSurveys, mockSurveyResponses } from './server/fixtures/mockSurveys.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const app = express();
@@ -14,6 +15,10 @@ const EXTERNAL_API_URL = process.env.EXTERNAL_API_URL || null;
 
 // In-memory store — reset quando o servidor reinicia
 let store = { customers: [], cancellations: [], updatedAt: null };
+
+// In-memory store de pesquisas/respostas — mesma limitação (reset a cada restart),
+// mas centralizado no servidor em vez de localStorage por navegador.
+let surveyStore = { surveys: [...mockSurveys], responses: [...mockSurveyResponses] };
 
 // ─── Transformação dos dados brutos da Query 1 ───────────────────────────────
 
@@ -114,8 +119,13 @@ function calcRevenueRetention(customers, cancellations) {
   const churnedMrr = cancellations.reduce((a, c) => a + (Number(c.mrr) || 0), 0);
   const startingMrr = withHistory.reduce((a, c) => a + c.previousMrr, 0) + churnedMrr;
 
+  // Clientes sem previousMrr nao tem historico anterior — por definicao, sao novos.
+  const newMrr = customers
+    .filter(c => c.previousMrr === null || c.previousMrr === undefined)
+    .reduce((a, c) => a + c.mrr, 0);
+
   if (startingMrr <= 0) {
-    return { nrr: 100, grr: 100, expansionMrr: 0, contractionMrr: 0, churnedMrr: 0 };
+    return { nrr: 100, grr: 100, newMrr, expansionMrr: 0, contractionMrr: 0, churnedMrr: 0 };
   }
 
   const expansionMrr = withHistory.reduce((a, c) => a + Math.max(0, c.mrr - c.previousMrr), 0);
@@ -124,7 +134,7 @@ function calcRevenueRetention(customers, cancellations) {
   const nrr = ((startingMrr + expansionMrr - contractionMrr - churnedMrr) / startingMrr) * 100;
   const grr = ((startingMrr - contractionMrr - churnedMrr) / startingMrr) * 100;
 
-  return { nrr, grr, expansionMrr, contractionMrr, churnedMrr };
+  return { nrr, grr, newMrr, expansionMrr, contractionMrr, churnedMrr };
 }
 
 // ─── Fonte de dados: API externa (quando configurada) ou mock ───────────────
@@ -190,7 +200,7 @@ app.get('/api/stats', (_req, res) => {
   const activeAtStart = count + cancelledCount;
   const logoChurnRate = activeAtStart > 0 ? (cancelledCount / activeAtStart) * 100 : 0;
 
-  const { nrr, grr, expansionMrr, contractionMrr, churnedMrr } = calcRevenueRetention(customers, cancellations);
+  const { nrr, grr, newMrr, expansionMrr, contractionMrr, churnedMrr } = calcRevenueRetention(customers, cancellations);
 
   res.json({
     avgScore,
@@ -205,11 +215,37 @@ app.get('/api/stats', (_req, res) => {
     multiAcquirerRate: (multiAcquirerCount / count) * 100,
     nrr,
     grr,
+    newMrr,
     expansionMrr,
     contractionMrr,
     churnedMrr,
     updatedAt: store.updatedAt,
   });
+});
+
+// ─── Pesquisas (NPS/CSAT) ──────────────────────────────────────────────────
+
+app.post('/api/surveys', (req, res) => {
+  surveyStore.surveys.unshift(req.body);
+  res.json({ ok: true });
+});
+
+app.get('/api/surveys', (_req, res) => {
+  res.json({ surveys: surveyStore.surveys });
+});
+
+app.post('/api/survey-responses', (req, res) => {
+  const response = req.body;
+  surveyStore.responses = surveyStore.responses.filter(r => r.token !== response.token);
+  surveyStore.responses.push(response);
+  surveyStore.surveys = surveyStore.surveys.map(s =>
+    s.token === response.token ? { ...s, status: 'responded', score: response.score } : s
+  );
+  res.json({ ok: true });
+});
+
+app.get('/api/survey-responses', (_req, res) => {
+  res.json({ responses: surveyStore.responses });
 });
 
 // Serve o frontend (build de produção)
