@@ -1,15 +1,18 @@
 import React, { useState } from 'react';
 import {
-  Activity, AlertTriangle, CheckCircle2, TrendingDown,
+  Activity, AlertTriangle, CheckCircle2, TrendingDown, TrendingUp, Percent,
   Users, CreditCard, ArrowUpRight, ArrowDownRight, Info, ShieldCheck,
 } from 'lucide-react';
 import { formatCurrency, formatPercent } from '../utils/formatters';
+import GlassCard from './ui/GlassCard';
 
 const METRIC_TOOLTIPS = {
   avgScore: 'Pontuação média de saúde dos clientes ativos. Calculada com base em Engajamento (40%), Adoção Técnica (35%) e Saúde Financeira (25%).',
   atRisk: 'Clientes com Health Score abaixo de 50. Indicam alto risco de churn e requerem ação imediata do time de CS.',
   healthy: 'Clientes com Health Score acima de 75. Base saudável e com menor propensão a churn.',
   totalMRR: 'Receita Recorrente Mensal: soma dos valores mensais dos planos de assinatura ativos.',
+  nrr: 'Net Revenue Retention: receita retida de clientes existentes, incluindo expansão e descontando contração e churn. Acima de 100% indica que a expansão supera as perdas.',
+  grr: 'Gross Revenue Retention: receita retida de clientes existentes, descontando apenas contração e churn (sem contar expansão). Referência saudável: acima de 90%.',
   logoChurn: 'Percentual de clientes que cancelaram em relação ao total ativo no início do período.',
   cancelledCount: 'Total de clientes cancelados com justificativa registrada no período.',
   multiAcquirer: 'Percentual de clientes que utilizam mais de uma adquirente. Indica maior adoção da plataforma.',
@@ -36,7 +39,7 @@ const MetricTooltip = ({ text }) => {
 };
 
 const Card = ({ icon, iconBg, iconColor, label, value, badge, badgeUp, tooltipKey }) => (
-  <div className="bg-white dark:bg-slate-900 p-5 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-800">
+  <GlassCard variant="default" className="p-5">
     <div className="flex justify-between items-start mb-3">
       <div className={`p-2 ${iconBg} rounded-lg ${iconColor}`}>{icon}</div>
       <div className="flex items-center gap-2">
@@ -51,7 +54,7 @@ const Card = ({ icon, iconBg, iconColor, label, value, badge, badgeUp, tooltipKe
     </div>
     <p className="text-slate-500 dark:text-slate-400 text-[11px] uppercase tracking-wider font-semibold mb-1">{label}</p>
     <h3 className="text-xl font-bold text-slate-900 dark:text-white leading-tight">{value}</h3>
-  </div>
+  </GlassCard>
 );
 
 const StatsCards = ({ stats }) => {
@@ -59,7 +62,7 @@ const StatsCards = ({ stats }) => {
 
   const cards = [
     {
-      icon: <Activity size={18} />, iconBg: 'bg-blue-50 dark:bg-blue-500/10', iconColor: 'text-blue-600 dark:text-blue-400',
+      icon: <Activity size={18} />, iconBg: 'bg-brand-50 dark:bg-brand-500/10', iconColor: 'text-brand-600 dark:text-brand-400',
       label: 'Média de Saúde', value: `${stats.avgScore ?? 0} / 100`, tooltipKey: 'avgScore',
     },
     {
@@ -73,6 +76,18 @@ const StatsCards = ({ stats }) => {
     {
       icon: <CreditCard size={18} />, iconBg: 'bg-indigo-50 dark:bg-indigo-500/10', iconColor: 'text-indigo-600 dark:text-indigo-400',
       label: 'MRR Total', value: formatCurrency(stats.totalMRR ?? 0), tooltipKey: 'totalMRR',
+    },
+    {
+      icon: <TrendingUp size={18} />,
+      iconBg: (stats.nrr ?? 100) >= 100 ? 'bg-emerald-50 dark:bg-emerald-500/10' : 'bg-amber-50 dark:bg-amber-500/10',
+      iconColor: (stats.nrr ?? 100) >= 100 ? 'text-emerald-600 dark:text-emerald-400' : 'text-amber-600 dark:text-amber-400',
+      label: 'NRR', value: formatPercent(stats.nrr ?? 100), tooltipKey: 'nrr',
+    },
+    {
+      icon: <Percent size={18} />,
+      iconBg: (stats.grr ?? 100) >= 90 ? 'bg-emerald-50 dark:bg-emerald-500/10' : 'bg-rose-50 dark:bg-rose-500/10',
+      iconColor: (stats.grr ?? 100) >= 90 ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400',
+      label: 'GRR', value: formatPercent(stats.grr ?? 100), tooltipKey: 'grr',
     },
     {
       icon: <TrendingDown size={18} />, iconBg: 'bg-rose-50 dark:bg-rose-500/10', iconColor: 'text-rose-600 dark:text-rose-400',
@@ -98,7 +113,7 @@ const StatsCards = ({ stats }) => {
   ];
 
   return (
-    <div className="max-w-7xl mx-auto grid grid-cols-2 sm:grid-cols-4 gap-4 mb-8">
+    <div className="max-w-7xl mx-auto grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-5 gap-4 mb-8">
       {cards.map((card, i) => <Card key={i} {...card} />)}
     </div>
   );
