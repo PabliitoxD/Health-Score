@@ -1,7 +1,7 @@
 import express from 'express';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
-import { mockCustomersRaw, mockCancellations } from './server/fixtures/mockCustomers.js';
+import { mockCustomersRaw, mockCancellations, mockNonRenewals } from './server/fixtures/mockCustomers.js';
 import { mockSurveys, mockSurveyResponses } from './server/fixtures/mockSurveys.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -9,12 +9,12 @@ const app = express();
 app.use(express.json({ limit: '10mb' }));
 
 // Quando definida, os dados passam a vir da API real em vez do mock.
-// Contrato esperado: GET <EXTERNAL_API_URL> retornando { customers: [...], cancellations: [...] }
+// Contrato esperado: GET <EXTERNAL_API_URL> retornando { customers: [...], cancellations: [...], nonRenewals: [...] }
 // no mesmo formato bruto usado em server/fixtures/mockCustomers.js.
 const EXTERNAL_API_URL = process.env.EXTERNAL_API_URL || null;
 
 // In-memory store — reset quando o servidor reinicia
-let store = { customers: [], cancellations: [], updatedAt: null };
+let store = { customers: [], cancellations: [], nonRenewals: [], updatedAt: null };
 
 // In-memory store de pesquisas/respostas — mesma limitação (reset a cada restart),
 // mas centralizado no servidor em vez de localStorage por navegador.
@@ -151,12 +151,14 @@ async function fetchFromExternalApi(url) {
 async function loadStore() {
   let rawCustomers = mockCustomersRaw;
   let rawCancellations = mockCancellations;
+  let rawNonRenewals = mockNonRenewals;
 
   if (EXTERNAL_API_URL) {
     try {
       const data = await fetchFromExternalApi(EXTERNAL_API_URL);
       rawCustomers = data.customers || [];
       rawCancellations = data.cancellations || [];
+      rawNonRenewals = data.nonRenewals || [];
     } catch (err) {
       console.error(`[loadStore] Falha ao buscar API externa: ${err.message}`);
       console.warn('[loadStore] Usando dados mockados como fallback.');
@@ -168,10 +170,11 @@ async function loadStore() {
   store = {
     customers: rawCustomers.map(transformCustomer).map(enrichCustomer),
     cancellations: rawCancellations,
+    nonRenewals: rawNonRenewals,
     updatedAt: new Date().toISOString(),
   };
 
-  console.log(`[loadStore] ${store.customers.length} clientes, ${store.cancellations.length} cancelamentos carregados`);
+  console.log(`[loadStore] ${store.customers.length} clientes, ${store.cancellations.length} cancelamentos, ${store.nonRenewals.length} não renovados carregados`);
 }
 
 // ─── Endpoints ───────────────────────────────────────────────────────────────
@@ -182,6 +185,10 @@ app.get('/api/customers', (_req, res) => {
 
 app.get('/api/cancellations', (_req, res) => {
   res.json({ cancellations: store.cancellations, updatedAt: store.updatedAt });
+});
+
+app.get('/api/non-renewals', (_req, res) => {
+  res.json({ nonRenewals: store.nonRenewals, updatedAt: store.updatedAt });
 });
 
 app.get('/api/stats', (_req, res) => {

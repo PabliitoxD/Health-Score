@@ -205,6 +205,7 @@ export const mockCancellations = [
   {
     id: 'PRD-0891',
     name: 'Recanto Verde Paisagismo LTDA',
+    tier: 'Start',
     mrr: 780,
     cancelDate: '2026-06-20',
     reason: 'Custo alto',
@@ -212,6 +213,7 @@ export const mockCancellations = [
   {
     id: 'PRD-0654',
     name: 'Oficina Prime Automotiva LTDA',
+    tier: 'Pro',
     mrr: 1200,
     cancelDate: '2026-05-02',
     reason: 'Baixo uso da plataforma',
@@ -219,8 +221,55 @@ export const mockCancellations = [
   {
     id: 'PRD-0432',
     name: 'Boutique Encanto Feminino LTDA',
+    tier: 'Start',
     mrr: 560,
     cancelDate: '2026-01-15',
     reason: 'Migrou para concorrente',
+  },
+];
+
+// Assinaturas cujo ciclo mensal encerrou sem renovação — diferente de um
+// cancelamento formal (mockCancellations), é o evento "passivo" de quando o
+// cliente simplesmente não paga a próxima cobrança.
+export const mockNonRenewals = [
+  {
+    id: 'PRD-0777',
+    name: 'Metalúrgica Ferro Forte LTDA',
+    tier: 'Pro',
+    mrr: 1950,
+    cycleEndDate: '2026-06-15',
+    reason: 'Cartão recusado',
+  },
+  {
+    id: 'PRD-0512',
+    name: 'Farmácia Vida Plena LTDA',
+    tier: 'Start',
+    mrr: 690,
+    cycleEndDate: '2026-05-20',
+    reason: 'Sem retorno do cliente',
+  },
+  {
+    id: 'PRD-0298',
+    name: 'Pet Shop Amigo Fiel LTDA',
+    tier: 'Start',
+    mrr: 450,
+    cycleEndDate: '2026-04-10',
+    reason: 'Cartão vencido',
+  },
+  {
+    id: 'PRD-0663',
+    name: 'Distribuidora Nova Era LTDA',
+    tier: 'Scale',
+    mrr: 3800,
+    cycleEndDate: '2026-06-25',
+    reason: 'Cartão recusado',
+  },
+  {
+    id: 'PRD-0845',
+    name: 'Confecções Linha Bela LTDA',
+    tier: 'Start',
+    mrr: 590,
+    cycleEndDate: '2026-07-01',
+    reason: 'Sem retorno do cliente',
   },
 ];

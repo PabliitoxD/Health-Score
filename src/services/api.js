@@ -17,3 +17,10 @@ export const getCancellations = async () => {
   const { cancellations } = await res.json();
   return cancellations;
 };
+
+export const getNonRenewals = async () => {
+  const res = await fetch('/api/non-renewals');
+  if (!res.ok) throw new Error('Falha ao buscar não renovados');
+  const { nonRenewals } = await res.json();
+  return nonRenewals;
+};
