@@ -1,54 +1,9 @@
 import { useState, useEffect, useMemo } from 'react';
 import { getCustomers, getStats, getCancellations } from '../services/api';
 import { computeRevenueRetention, computeLogoChurn } from '../utils/kpis';
+import { applyDateFilter } from '../utils/dateFilter';
 
-const startOfWeek = (date) => {
-  const d = new Date(date);
-  const day = d.getDay();
-  const diff = day === 0 ? -6 : 1 - day;
-  d.setDate(d.getDate() + diff);
-  d.setHours(0, 0, 0, 0);
-  return d;
-};
-
-const applyDateFilter = (items, dateFilter, customDateRange, dateField = 'joinDate') => {
-  if (dateFilter === 'all') return items;
-
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-
-  if (dateFilter === 'today') {
-    return items.filter((it) => {
-      const d = new Date(it[dateField] + 'T00:00:00');
-      return d.getTime() === today.getTime();
-    });
-  }
-  if (dateFilter === 'week') {
-    const weekStart = startOfWeek(today);
-    return items.filter((it) => {
-      const d = new Date(it[dateField] + 'T00:00:00');
-      return d >= weekStart && d <= today;
-    });
-  }
-  if (dateFilter === 'month') {
-    return items.filter((it) => {
-      const d = new Date(it[dateField] + 'T00:00:00');
-      return d.getFullYear() === today.getFullYear() &&
-             d.getMonth() === today.getMonth();
-    });
-  }
-  if (dateFilter === 'custom') {
-    return items.filter((it) => {
-      const d = new Date(it[dateField] + 'T00:00:00');
-      if (customDateRange.from && d < new Date(customDateRange.from + 'T00:00:00')) return false;
-      if (customDateRange.to && d > new Date(customDateRange.to + 'T23:59:59')) return false;
-      return true;
-    });
-  }
-  return items;
-};
-
-const computeStats = (customers, cancellationsInPeriod, globalStats) => {
+const computeStats = (customers, retainedCustomers, cancellationsInPeriod, globalStats) => {
   const count = customers.length;
   const totalMRR = customers.reduce((acc, c) => acc + c.mrr, 0);
   const avgScore = count ? Math.round(customers.reduce((acc, c) => acc + c.score, 0) / count) : 0;
@@ -58,7 +13,8 @@ const computeStats = (customers, cancellationsInPeriod, globalStats) => {
   const multiAcquirerCount = customers.filter((c) => c.multiAcquirer).length;
 
   const logoChurnRate = computeLogoChurn(count, cancellationsInPeriod.length);
-  const { nrr, grr, expansionMrr, contractionMrr, churnedMrr } = computeRevenueRetention(customers, cancellationsInPeriod);
+  const newCustomers = customers.filter((c) => c.previousMrr === null || c.previousMrr === undefined);
+  const { nrr, grr, expansionMrr, contractionMrr, churnedMrr } = computeRevenueRetention(newCustomers, retainedCustomers, cancellationsInPeriod);
 
   return {
     ...globalStats,
@@ -109,6 +65,16 @@ export const useCustomers = () => {
     [allCustomers, dateFilter, customDateRange]
   );
 
+  // Clientes existentes (com previousMrr) filtrados pela data da última cobrança —
+  // é quando a renovação de fato aconteceu, joinDate não serve pra esse grupo.
+  const dateFilteredRetained = useMemo(
+    () => applyDateFilter(
+      allCustomers.filter((c) => c.previousMrr !== null && c.previousMrr !== undefined),
+      dateFilter, customDateRange, 'lastChargeDate'
+    ),
+    [allCustomers, dateFilter, customDateRange]
+  );
+
   const dateFilteredCancellations = useMemo(
     () => applyDateFilter(allCancellations, dateFilter, customDateRange, 'cancelDate'),
     [allCancellations, dateFilter, customDateRange]
@@ -125,8 +91,8 @@ export const useCustomers = () => {
   );
 
   const stats = useMemo(
-    () => computeStats(dateFilteredAll, dateFilteredCancellations, globalStats),
-    [dateFilteredAll, dateFilteredCancellations, globalStats]
+    () => computeStats(dateFilteredAll, dateFilteredRetained, dateFilteredCancellations, globalStats),
+    [dateFilteredAll, dateFilteredRetained, dateFilteredCancellations, globalStats]
   );
 
   return {

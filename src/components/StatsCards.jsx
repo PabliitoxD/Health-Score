@@ -19,17 +19,18 @@ const METRIC_TOOLTIPS = {
   activeCount: 'Total de clientes com plano ativo no momento.',
 };
 
+// Posicionada absolute relativa ao Card inteiro (não ao ícone) — evita
+// que a caixa de texto, mais alta que um card, estoure sobre as linhas abaixo.
 const MetricTooltip = ({ text }) => {
   const [visible, setVisible] = useState(false);
   return (
     <div
-      className="relative"
       onMouseEnter={() => setVisible(true)}
       onMouseLeave={() => setVisible(false)}
     >
       <Info size={13} className="text-slate-300 dark:text-slate-600 cursor-help" />
       {visible && (
-        <div className="absolute top-full right-0 mt-2 w-56 p-3 bg-slate-900 dark:bg-slate-700 text-slate-200 text-[11px] leading-relaxed rounded-xl shadow-xl z-20 pointer-events-none">
+        <div className="absolute top-full right-2 mt-2 w-48 max-w-[85vw] p-3 bg-slate-900 dark:bg-slate-700 text-slate-200 text-[11px] leading-relaxed rounded-xl shadow-xl z-20 pointer-events-none">
           <div className="absolute bottom-full right-2 border-4 border-transparent border-b-slate-900 dark:border-b-slate-700" />
           {text}
         </div>
@@ -39,7 +40,7 @@ const MetricTooltip = ({ text }) => {
 };
 
 const Card = ({ icon, iconBg, iconColor, label, value, badge, badgeUp, tooltipKey }) => (
-  <GlassCard variant="default" className="p-5">
+  <GlassCard variant="default" className="p-5 relative">
     <div className="flex justify-between items-start mb-3">
       <div className={`p-2 ${iconBg} rounded-lg ${iconColor}`}>{icon}</div>
       <div className="flex items-center gap-2">
