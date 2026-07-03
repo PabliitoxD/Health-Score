@@ -10,6 +10,18 @@ const STATUS_LABELS = {
   'At Risk': { label: 'Em Risco', cls: 'bg-rose-100 dark:bg-rose-500/10 text-rose-700 dark:text-rose-400' },
 };
 
+const ACCOUNT_STATUS_LABELS = {
+  trial: { label: 'Trial', cls: 'bg-cyan-100 dark:bg-cyan-500/10 text-cyan-700 dark:text-cyan-400' },
+  active: { label: 'Ativo', cls: 'bg-emerald-100 dark:bg-emerald-500/10 text-emerald-700 dark:text-emerald-400' },
+  cancelled: { label: 'Cancelado', cls: 'bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-400' },
+};
+
+const formatSubscriptionMonths = (months) => {
+  if (months === null || months === undefined) return '—';
+  if (months < 1) return '< 1 mês';
+  return months === 1 ? '1 mês' : `${months} meses`;
+};
+
 const ScoreBar = ({ icon, label, weight, value, color }) => (
   <div>
     <div className="flex justify-between text-xs font-medium mb-1">
@@ -43,6 +55,7 @@ const CustomerDetails = ({ selectedCustomer }) => {
 
   const c = selectedCustomer;
   const statusInfo = STATUS_LABELS[c.status] ?? { label: c.status, cls: 'bg-slate-100 text-slate-600' };
+  const accountStatusInfo = ACCOUNT_STATUS_LABELS[c.accountStatus] ?? null;
 
   const nextChargeColor = c.daysToNextCharge !== null && c.daysToNextCharge < 0
     ? 'text-rose-500 dark:text-rose-400'
@@ -57,7 +70,12 @@ const CustomerDetails = ({ selectedCustomer }) => {
         <div className="p-6 border-b border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/30">
           <div className="flex justify-between items-start mb-3">
             <h2 className="text-lg font-bold text-slate-900 dark:text-white">Detalhes da Saúde</h2>
-            <span className={`px-2 py-1 rounded-full text-xs font-medium ${statusInfo.cls}`}>{statusInfo.label}</span>
+            <div className="flex items-center gap-2">
+              {accountStatusInfo && (
+                <span className={`px-2 py-1 rounded-full text-xs font-medium ${accountStatusInfo.cls}`}>{accountStatusInfo.label}</span>
+              )}
+              <span className={`px-2 py-1 rounded-full text-xs font-medium ${statusInfo.cls}`}>{statusInfo.label}</span>
+            </div>
           </div>
           <h3 className="text-xl font-bold text-slate-900 dark:text-white mb-1">{c.name}</h3>
           <p className="text-slate-500 dark:text-slate-400 text-xs mb-1">
@@ -118,6 +136,7 @@ const CustomerDetails = ({ selectedCustomer }) => {
             <div className="grid grid-cols-2 gap-3">
               <InfoTile label="MRR" value={formatCurrency(c.mrr)} />
               <InfoTile label="ARR" value={formatCurrency(c.mrr * 12)} />
+              <InfoTile label="Meses de Assinatura" value={formatSubscriptionMonths(c.subscriptionMonths)} />
             </div>
           </div>
 

@@ -16,6 +16,12 @@ const TREND_COLOR = {
   stable: 'text-slate-400 dark:text-slate-500',
 };
 
+const ACCOUNT_STATUS_LABELS = {
+  trial: { label: 'Trial', cls: 'bg-cyan-100 dark:bg-cyan-500/10 text-cyan-700 dark:text-cyan-400' },
+  active: { label: 'Ativo', cls: 'bg-emerald-100 dark:bg-emerald-500/10 text-emerald-700 dark:text-emerald-400' },
+  cancelled: { label: 'Cancelado', cls: 'bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-400' },
+};
+
 const CustomerList = ({
   customers, searchTerm, setSearchTerm,
   filterStatus, setFilterStatus,
@@ -50,6 +56,7 @@ const CustomerList = ({
         <thead>
           <tr className="bg-slate-50 dark:bg-slate-800/50 border-b border-slate-100 dark:border-slate-800 text-slate-500 dark:text-slate-400 text-xs uppercase tracking-wider">
             <th className="px-6 py-4 font-semibold">Cliente</th>
+            <th className="px-6 py-4 font-semibold">Conta</th>
             <th className="px-6 py-4 font-semibold">Plano</th>
             <th className="px-6 py-4 font-semibold">Health Score</th>
             <th className="px-6 py-4 font-semibold text-right">Ver</th>
@@ -67,6 +74,11 @@ const CustomerList = ({
               <td className="px-6 py-4">
                 <p className="font-semibold text-slate-900 dark:text-white text-sm">{customer.name}</p>
                 <p className="text-slate-400 dark:text-slate-500 text-xs">{STATUS_LABELS[customer.status] ?? customer.status}</p>
+              </td>
+              <td className="px-6 py-4">
+                <span className={`text-xs px-2 py-1 rounded-full font-medium ${ACCOUNT_STATUS_LABELS[customer.accountStatus]?.cls ?? 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400'}`}>
+                  {ACCOUNT_STATUS_LABELS[customer.accountStatus]?.label ?? customer.accountStatus}
+                </span>
               </td>
               <td className="px-6 py-4">
                 <span className="text-xs text-slate-600 dark:text-slate-400 bg-slate-100 dark:bg-slate-800 px-2 py-1 rounded font-medium">
@@ -102,7 +114,7 @@ const CustomerList = ({
           ))}
           {customers.length === 0 && (
             <tr>
-              <td colSpan="4" className="px-6 py-8 text-center text-slate-400 dark:text-slate-500 text-sm">
+              <td colSpan="5" className="px-6 py-8 text-center text-slate-400 dark:text-slate-500 text-sm">
                 Nenhum cliente encontrado.
               </td>
             </tr>

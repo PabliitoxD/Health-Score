@@ -3,7 +3,7 @@ import {
   DollarSign, Landmark, TrendingDown, Percent, Sparkles,
   ArrowUpCircle, ArrowDownCircle, UserMinus, Smile, Gem, Star,
   UserPlus, Users, RefreshCw, XCircle, UserX, Tag,
-  Wallet, QrCode, CreditCard, Receipt,
+  Wallet, QrCode, CreditCard, Receipt, CalendarClock,
 } from 'lucide-react';
 import { getCustomers, getCancellations, getNonRenewals } from '../services/api';
 import { getResponses } from '../utils/surveyStorage';
@@ -183,6 +183,14 @@ const CompanyView = () => {
   const nonRenewalsBreakdown = computePlanBreakdown(nonRenewalsInPeriod);
   const cancellationsByReason = computeBreakdown(cancellationsInPeriod, { groupField: 'reason' });
   const tpv = computeTpv(dateFilteredAll);
+
+  // Renovações nos próximos 3 dias: clientes ativos com a próxima cobrança
+  // já agendada pra daqui até 3 dias. Não segue o filtro de período (que
+  // olha pra trás, por data de entrada/cobrança) — é sempre uma janela pra
+  // frente a partir de hoje.
+  const upcomingRenewals = customers.filter(
+    (c) => c.accountStatus === 'active' && c.daysToNextCharge !== null && c.daysToNextCharge >= 0 && c.daysToNextCharge <= 3
+  );
 
   // ─── Detalhamento por card (abre no modal ao clicar) ────────────────────
 
@@ -368,6 +376,17 @@ const CompanyView = () => {
     tpvPix: tpvMethodDetail('pix', 'Pix'),
     tpvCartao: tpvMethodDetail('cartao', 'Cartão'),
     tpvBoleto: tpvMethodDetail('boleto', 'Boleto'),
+    upcomingRenewals: {
+      title: 'Renovações nos Próximos 3 Dias',
+      formula: 'Clientes ativos com a próxima cobrança agendada para os próximos 3 dias a partir de hoje.',
+      columns: [
+        { key: 'name', label: 'Cliente' }, { key: 'tier', label: 'Plano' },
+        { key: 'nextCharge', label: 'Próxima Cobrança', align: 'right' }, { key: 'value', label: 'MRR', align: 'right' },
+      ],
+      rows: upcomingRenewals.map((c) => ({ name: c.name, tier: c.tier, nextCharge: c.nextCharge, value: formatCurrency(c.mrr) })),
+      totalRow: { value: formatCurrency(upcomingRenewals.reduce((a, c) => a + c.mrr, 0)) },
+      emptyText: 'Nenhuma renovação nos próximos 3 dias',
+    },
   };
 
   const cards = [
@@ -460,6 +479,10 @@ const CompanyView = () => {
             <MetricCard
               icon={<Users size={18} />} iconBg="bg-violet-50 dark:bg-violet-500/10" iconColor="text-violet-600 dark:text-violet-400"
               label="Total de Clientes Ativos" value={count} onClick={() => setSelectedDetail(details.active)}
+            />
+            <MetricCard
+              icon={<CalendarClock size={18} />} iconBg="bg-cyan-50 dark:bg-cyan-500/10" iconColor="text-cyan-600 dark:text-cyan-400"
+              label="Renovações em até 3 Dias" value={upcomingRenewals.length} onClick={() => setSelectedDetail(details.upcomingRenewals)}
             />
             <BreakdownTable title="Novas Assinaturas por Plano" icon={<UserPlus size={16} />} keyLabel="Plano" data={newSubsBreakdown} />
             <BreakdownTable title="Renovações por Plano" icon={<RefreshCw size={16} />} keyLabel="Plano" data={renewalsBreakdown} />

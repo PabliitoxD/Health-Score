@@ -2,7 +2,6 @@ import express from 'express';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 import { loadEnvFile } from './server/loadEnv.js';
-import { mockSurveys, mockSurveyResponses } from './server/fixtures/mockSurveys.js';
 import { fetchFromExternalApi } from './server/externalApi.js';
 import { readCustomerSnapshot, writeCustomerSnapshot } from './server/customerSnapshot.js';
 
@@ -22,8 +21,9 @@ const SYNC_INTERVAL_MINUTES = Number(process.env.SYNC_INTERVAL_MINUTES) || 60;
 let store = { customers: [], cancellations: [], nonRenewals: [], updatedAt: null };
 
 // In-memory store de pesquisas/respostas — mesma limitação (reset a cada restart),
-// mas centralizado no servidor em vez de localStorage por navegador.
-let surveyStore = { surveys: [...mockSurveys], responses: [...mockSurveyResponses] };
+// mas centralizado no servidor em vez de localStorage por navegador. Sem seed
+// mockada: começa vazio e só popula com pesquisas disparadas de verdade.
+let surveyStore = { surveys: [], responses: [] };
 
 // ─── Transformação dos dados brutos da Query 1 ───────────────────────────────
 
@@ -37,6 +37,20 @@ function daysUntil(dateStr) {
   if (!dateStr) return null;
   const diff = new Date(dateStr).getTime() - Date.now();
   return Math.floor(diff / (1000 * 60 * 60 * 24));
+}
+
+// Meses entre duas datas, arredondado pra baixo. Reflete só o ciclo de
+// assinatura ATUAL (desde "Primeira Assinatura") — a API não expõe o
+// histórico de ciclos anteriores caso o cliente já tenha cancelado e voltado
+// a assinar em outro momento, então não dá pra somar através desses gaps
+// retroativamente (ver conversa sobre "meses de assinatura somados").
+function monthsBetween(startDateStr, endDateStr) {
+  if (!startDateStr) return null;
+  const start = new Date(startDateStr);
+  const end = endDateStr ? new Date(endDateStr) : new Date();
+  let months = (end.getFullYear() - start.getFullYear()) * 12 + (end.getMonth() - start.getMonth());
+  if (end.getDate() < start.getDate()) months -= 1;
+  return Math.max(0, months);
 }
 
 function transformCustomer(row) {
@@ -70,7 +84,31 @@ function transformCustomer(row) {
       cartao: { percent: Number(row['TPV Cartão Percentual']) || 0, total: Number(row['TPV Cartão Total']) || 0 },
       boleto: { percent: Number(row['TPV Boleto Percentual']) || 0, total: Number(row['TPV Boleto Total']) || 0 },
     },
+    trialPlan: row['Trial Plano'] || 'no',
+    cancellationRequested: !!row['Cancelamento Solicitado'],
+    hasPaymentFailure: !!row['Falha Pagamento'],
   };
+}
+
+// Trial: plan.trial_plan === "yes" — ainda não é cliente pagante, contagem
+// à parte, não entra nas métricas de "ativos".
+//
+// Cancelado: falha de pagamento SEMPRE conta como cancelado (não houve
+// renovação). Cancelamento por solicitação do cliente só passa a valer no
+// fim do período já pago — até lá a conta continua ativa (regra confirmada
+// com o time: "quando o cliente solicita o cancelamento, a conta é
+// cancelada ao final do período contratado"). Usamos a data da última
+// cobrança (fim do ciclo pago) como referência desse período.
+//
+// Ativo: todo o resto.
+function deriveAccountStatus(c) {
+  if (c.trialPlan === 'yes') return 'trial';
+  if (c.hasPaymentFailure) return 'cancelled';
+  if (c.cancellationRequested) {
+    if (!c.lastChargeDate) return 'cancelled';
+    return Date.now() > new Date(c.lastChargeDate).getTime() ? 'cancelled' : 'active';
+  }
+  return 'active';
 }
 
 // ─── Cálculo do Health Score ──────────────────────────────────────────────────
@@ -120,8 +158,10 @@ function enrichCustomer(c) {
 
   const status = score >= 75 ? 'Healthy' : score >= 50 ? 'Attention' : 'At Risk';
   const trend = calcTrend(score, c.previousScore);
+  const accountStatus = deriveAccountStatus(c);
+  const subscriptionMonths = monthsBetween(c.joinDate, accountStatus === 'cancelled' ? c.lastChargeDate : null);
 
-  return { ...c, score, status, trend, engajamento, adocao, saudeFinanceira };
+  return { ...c, score, status, trend, engajamento, adocao, saudeFinanceira, accountStatus, subscriptionMonths };
 }
 
 // ─── Retenção de receita (NRR/GRR) ────────────────────────────────────────────
@@ -208,22 +248,38 @@ app.get('/api/non-renewals', (_req, res) => {
 });
 
 app.get('/api/stats', (_req, res) => {
-  const { customers, cancellations } = store;
+  const { customers } = store;
 
   if (!customers.length) return res.json(null);
 
-  const totalMRR = customers.reduce((a, c) => a + c.mrr, 0);
-  const count = customers.length;
-  const avgScore = Math.round(customers.reduce((a, c) => a + c.score, 0) / count);
-  const atRisk = customers.filter(c => c.status === 'At Risk').length;
-  const healthy = customers.filter(c => c.status === 'Healthy').length;
-  const multiAcquirerCount = customers.filter(c => c.multiAcquirer).length;
+  // "Clientes ativos" (MRR Total, Média de Saúde etc.) considera só quem
+  // tem plano pago e não teve a conta cancelada (ver deriveAccountStatus).
+  // Trial é contagem à parte — ainda não é receita/cliente pagante.
+  const activeCustomers = customers.filter(c => c.accountStatus === 'active');
+  const cancelledCustomers = customers.filter(c => c.accountStatus === 'cancelled');
+  const trialCount = customers.filter(c => c.accountStatus === 'trial').length;
 
-  const cancelledCount = cancellations.length;
+  if (!activeCustomers.length) {
+    return res.json({
+      avgScore: 0, atRisk: 0, healthy: 0, totalMRR: 0, arr: 0, arpu: 0,
+      logoChurnRate: 0, cancelledCount: cancelledCustomers.length, activeCount: 0, trialCount,
+      multiAcquirerRate: 0, nrr: 100, grr: 100, newMrr: 0, expansionMrr: 0, contractionMrr: 0, churnedMrr: 0,
+      updatedAt: store.updatedAt,
+    });
+  }
+
+  const totalMRR = activeCustomers.reduce((a, c) => a + c.mrr, 0);
+  const count = activeCustomers.length;
+  const avgScore = Math.round(activeCustomers.reduce((a, c) => a + c.score, 0) / count);
+  const atRisk = activeCustomers.filter(c => c.status === 'At Risk').length;
+  const healthy = activeCustomers.filter(c => c.status === 'Healthy').length;
+  const multiAcquirerCount = activeCustomers.filter(c => c.multiAcquirer).length;
+
+  const cancelledCount = cancelledCustomers.length;
   const activeAtStart = count + cancelledCount;
   const logoChurnRate = activeAtStart > 0 ? (cancelledCount / activeAtStart) * 100 : 0;
 
-  const { nrr, grr, newMrr, expansionMrr, contractionMrr, churnedMrr } = calcRevenueRetention(customers, cancellations);
+  const { nrr, grr, newMrr, expansionMrr, contractionMrr, churnedMrr } = calcRevenueRetention(activeCustomers, cancelledCustomers);
 
   res.json({
     avgScore,
@@ -235,6 +291,7 @@ app.get('/api/stats', (_req, res) => {
     logoChurnRate,
     cancelledCount,
     activeCount: count,
+    trialCount,
     multiAcquirerRate: (multiAcquirerCount / count) * 100,
     nrr,
     grr,

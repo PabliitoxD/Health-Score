@@ -18,7 +18,7 @@ const EmptyState = () => (
   </div>
 );
 
-const DashboardView = ({ stats, allCustomers, loading, dateFilter, setDateFilter, customDateRange, setCustomDateRange }) => {
+const DashboardView = ({ stats, allCustomers, chartCustomers, loading, dateFilter, setDateFilter, customDateRange, setCustomDateRange }) => {
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -27,7 +27,7 @@ const DashboardView = ({ stats, allCustomers, loading, dateFilter, setDateFilter
     );
   }
 
-  const hasData = allCustomers.length > 0;
+  const hasData = chartCustomers.length > 0;
 
   return (
     <div className="p-4 md:p-8">
@@ -45,17 +45,17 @@ const DashboardView = ({ stats, allCustomers, loading, dateFilter, setDateFilter
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             <div className="lg:col-span-2">
               <ChartCard title="Health Score por Cliente">
-                <HealthScoreChart customers={allCustomers} />
+                <HealthScoreChart customers={chartCustomers} />
               </ChartCard>
             </div>
             <div className="lg:col-span-1">
               <ChartCard title="Distribuição de Status">
-                <StatusDistributionChart customers={allCustomers} />
+                <StatusDistributionChart customers={chartCustomers} />
               </ChartCard>
             </div>
           </div>
           <ChartCard title="MRR por Cliente">
-            <MRRChart customers={allCustomers} />
+            <MRRChart customers={chartCustomers} />
           </ChartCard>
         </div>
       ) : (

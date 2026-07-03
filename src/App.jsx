@@ -30,6 +30,7 @@ const App = () => {
         <DashboardView
           stats={customerData.stats}
           allCustomers={customerData.allCustomers}
+          chartCustomers={customerData.chartCustomers}
           loading={customerData.loading}
           dateFilter={customerData.dateFilter}
           setDateFilter={customerData.setDateFilter}

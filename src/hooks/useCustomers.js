@@ -3,7 +3,9 @@ import { getCustomers, getStats, getCancellations } from '../services/api';
 import { computeRevenueRetention, computeLogoChurn } from '../utils/kpis';
 import { applyDateFilter } from '../utils/dateFilter';
 
-const computeStats = (customers, retainedCustomers, cancellationsInPeriod, globalStats) => {
+// customers aqui já deve vir filtrado pra accountStatus === 'active' — trial
+// é contagem à parte (trialCount) e cancelado não entra nas métricas de MRR/saúde.
+const computeStats = (customers, retainedCustomers, cancellationsInPeriod, trialCount, globalStats) => {
   const count = customers.length;
   const totalMRR = customers.reduce((acc, c) => acc + c.mrr, 0);
   const avgScore = count ? Math.round(customers.reduce((acc, c) => acc + c.score, 0) / count) : 0;
@@ -21,6 +23,7 @@ const computeStats = (customers, retainedCustomers, cancellationsInPeriod, globa
     avgScore, atRisk, healthy,
     totalMRR, arr: totalMRR * 12, arpu,
     activeCount: count,
+    trialCount,
     multiAcquirerRate: count ? (multiAcquirerCount / count) * 100 : 0,
     logoChurnRate,
     cancelledCount: cancellationsInPeriod.length,
@@ -65,11 +68,29 @@ export const useCustomers = () => {
     [allCustomers, dateFilter, customDateRange]
   );
 
+  // Base de "clientes ativos" pras métricas do Dashboard (MRR, saúde, NRR/GRR):
+  // plano pago e não cancelado. Trial é contagem à parte (dateFilteredTrial).
+  const dateFilteredActive = useMemo(
+    () => dateFilteredAll.filter((c) => c.accountStatus === 'active'),
+    [dateFilteredAll]
+  );
+
+  const dateFilteredTrial = useMemo(
+    () => dateFilteredAll.filter((c) => c.accountStatus === 'trial'),
+    [dateFilteredAll]
+  );
+
+  // Gráficos do Dashboard: ativos + cancelados (indiferente do motivo), sem trial.
+  const chartCustomers = useMemo(
+    () => dateFilteredAll.filter((c) => c.accountStatus !== 'trial'),
+    [dateFilteredAll]
+  );
+
   // Clientes existentes (com previousMrr) filtrados pela data da última cobrança —
   // é quando a renovação de fato aconteceu, joinDate não serve pra esse grupo.
   const dateFilteredRetained = useMemo(
     () => applyDateFilter(
-      allCustomers.filter((c) => c.previousMrr !== null && c.previousMrr !== undefined),
+      allCustomers.filter((c) => c.accountStatus === 'active' && c.previousMrr !== null && c.previousMrr !== undefined),
       dateFilter, customDateRange, 'lastChargeDate'
     ),
     [allCustomers, dateFilter, customDateRange]
@@ -91,13 +112,14 @@ export const useCustomers = () => {
   );
 
   const stats = useMemo(
-    () => computeStats(dateFilteredAll, dateFilteredRetained, dateFilteredCancellations, globalStats),
-    [dateFilteredAll, dateFilteredRetained, dateFilteredCancellations, globalStats]
+    () => computeStats(dateFilteredActive, dateFilteredRetained, dateFilteredCancellations, dateFilteredTrial.length, globalStats),
+    [dateFilteredActive, dateFilteredRetained, dateFilteredCancellations, dateFilteredTrial, globalStats]
   );
 
   return {
     customers,
     allCustomers: dateFilteredAll,
+    chartCustomers,
     baseCustomers: allCustomers,
     stats,
     searchTerm, setSearchTerm,

@@ -2,7 +2,7 @@ import React, { useState, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import {
   Activity, AlertTriangle, CheckCircle2, TrendingDown, TrendingUp, Percent,
-  Users, CreditCard, ArrowUpRight, ArrowDownRight, Info, ShieldCheck,
+  Users, CreditCard, ArrowUpRight, ArrowDownRight, Info, ShieldCheck, Clock,
 } from 'lucide-react';
 import { formatCurrency, formatPercent } from '../utils/formatters';
 import GlassCard from './ui/GlassCard';
@@ -18,6 +18,7 @@ const METRIC_TOOLTIPS = {
   cancelledCount: 'Total de clientes cancelados com justificativa registrada no período.',
   multiAcquirer: 'Percentual de clientes que utilizam mais de uma adquirente. Indica maior adoção da plataforma.',
   activeCount: 'Total de clientes com plano ativo no momento.',
+  trialCount: 'Contas em período de teste (trial) — ainda não são receita, contadas à parte dos clientes ativos.',
 };
 
 // Renderizada via portal em document.body: cada GlassCard tem seu próprio
@@ -133,6 +134,10 @@ const StatsCards = ({ stats }) => {
     {
       icon: <Users size={18} />, iconBg: 'bg-violet-50 dark:bg-violet-500/10', iconColor: 'text-violet-600 dark:text-violet-400',
       label: 'Clientes Ativos', value: stats.activeCount ?? 0, tooltipKey: 'activeCount',
+    },
+    {
+      icon: <Clock size={18} />, iconBg: 'bg-cyan-50 dark:bg-cyan-500/10', iconColor: 'text-cyan-600 dark:text-cyan-400',
+      label: 'Em Trial', value: stats.trialCount ?? 0, tooltipKey: 'trialCount',
     },
   ];
 

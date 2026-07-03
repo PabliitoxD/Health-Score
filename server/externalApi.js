@@ -110,6 +110,10 @@ function adaptAccountDetail(detail, previousScore, previousMrrSnapshot) {
   const tpv = detail.tpv || {};
   const acquirers = detail.acquirers || [];
   const lastProduct = detail.last_product || {};
+  const cancelamento = detail.cancellation || {};
+  const paymentFailure = cancelamento.payment_failure || {};
+  const clientRequest = cancelamento.client_request || {};
+  const hasPaymentFailure = (paymentFailure.pending_invoices || 0) > 0 || !!paymentFailure.last_error_date;
 
   const previousMrr = derivePreviousMrrFromHistory(plan) ?? previousMrrSnapshot;
 
@@ -135,6 +139,10 @@ function adaptAccountDetail(detail, previousScore, previousMrrSnapshot) {
     'TPV Cartão Total': tpv.cartao?.total_value,
     'TPV Boleto Percentual': tpv.boleto?.percent,
     'TPV Boleto Total': tpv.boleto?.total_value,
+    // Usados pra classificar a conta em trial/ativa/cancelada (ver deriveAccountStatus em server.js).
+    'Trial Plano': plan.trial_plan || 'no',
+    'Cancelamento Solicitado': !!clientRequest.cancelled,
+    'Falha Pagamento': hasPaymentFailure,
   };
 }
 
