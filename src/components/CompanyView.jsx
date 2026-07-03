@@ -2,12 +2,12 @@ import React, { useState, useEffect, useMemo } from 'react';
 import {
   DollarSign, Landmark, TrendingDown, Percent, Sparkles,
   ArrowUpCircle, ArrowDownCircle, UserMinus, Smile, Gem, Star,
-  UserPlus, Users, RefreshCw, XCircle, UserX,
+  UserPlus, Users, RefreshCw, XCircle, UserX, Tag,
 } from 'lucide-react';
 import { getCustomers, getCancellations, getNonRenewals } from '../services/api';
 import { getResponses } from '../utils/surveyStorage';
 import { computeNps, computeCsat } from '../utils/surveyKpis';
-import { computeRevenueRetention, computeLogoChurn, computePlanBreakdown } from '../utils/kpis';
+import { computeRevenueRetention, computeLogoChurn, computePlanBreakdown, computeBreakdown } from '../utils/kpis';
 import { applyDateFilter } from '../utils/dateFilter';
 import { formatCurrency, formatPercent } from '../utils/formatters';
 import GlassCard from './ui/GlassCard';
@@ -24,7 +24,7 @@ const MetricCard = ({ icon, iconBg, iconColor, label, value, hint }) => (
   </GlassCard>
 );
 
-const PlanBreakdownTable = ({ title, icon, data }) => (
+const BreakdownTable = ({ title, icon, keyLabel = 'Plano', data }) => (
   <GlassCard variant="default" className="p-5">
     <div className="flex items-center gap-2 mb-4">
       <div className="w-8 h-8 flex items-center justify-center rounded-lg bg-brand-50 dark:bg-brand-500/10 text-brand-600 dark:text-brand-400">
@@ -38,15 +38,15 @@ const PlanBreakdownTable = ({ title, icon, data }) => (
       <table className="w-full text-left text-sm">
         <thead>
           <tr className="text-[10px] text-slate-400 dark:text-slate-500 uppercase tracking-wider">
-            <th className="pb-2 font-semibold">Plano</th>
+            <th className="pb-2 font-semibold">{keyLabel}</th>
             <th className="pb-2 font-semibold text-right">Qtd</th>
             <th className="pb-2 font-semibold text-right">MRR</th>
           </tr>
         </thead>
         <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
           {data.breakdown.map((row) => (
-            <tr key={row.tier}>
-              <td className="py-2 text-slate-600 dark:text-slate-400">{row.tier}</td>
+            <tr key={row.key}>
+              <td className="py-2 text-slate-600 dark:text-slate-400">{row.key}</td>
               <td className="py-2 text-right font-medium text-slate-900 dark:text-white">{row.count}</td>
               <td className="py-2 text-right font-medium text-slate-900 dark:text-white">{formatCurrency(row.mrr)}</td>
             </tr>
@@ -164,6 +164,7 @@ const CompanyView = () => {
   const renewalsBreakdown = computePlanBreakdown(retainedCustomers);
   const cancellationsBreakdown = computePlanBreakdown(cancellationsInPeriod);
   const nonRenewalsBreakdown = computePlanBreakdown(nonRenewalsInPeriod);
+  const cancellationsByReason = computeBreakdown(cancellationsInPeriod, { groupField: 'reason' });
 
   const cards = [
     {
@@ -251,18 +252,19 @@ const CompanyView = () => {
             />
             <MetricCard
               icon={<Users size={18} />} iconBg="bg-violet-50 dark:bg-violet-500/10" iconColor="text-violet-600 dark:text-violet-400"
-              label="Total de Clientes Ativos" value={customers.length} hint="Sempre o total atual, ignora o filtro"
+              label="Total de Clientes Ativos" value={count}
             />
-            <PlanBreakdownTable title="Novas Assinaturas por Plano" icon={<UserPlus size={16} />} data={newSubsBreakdown} />
-            <PlanBreakdownTable title="Renovações por Plano" icon={<RefreshCw size={16} />} data={renewalsBreakdown} />
+            <BreakdownTable title="Novas Assinaturas por Plano" icon={<UserPlus size={16} />} keyLabel="Plano" data={newSubsBreakdown} />
+            <BreakdownTable title="Renovações por Plano" icon={<RefreshCw size={16} />} keyLabel="Plano" data={renewalsBreakdown} />
           </div>
         </div>
 
         <div>
           <SectionTitle>Cancelamento</SectionTitle>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <PlanBreakdownTable title="Cancelamentos por Plano" icon={<XCircle size={16} />} data={cancellationsBreakdown} />
-            <PlanBreakdownTable title="Não Renovados por Plano" icon={<UserX size={16} />} data={nonRenewalsBreakdown} />
+            <BreakdownTable title="Cancelamentos por Plano" icon={<XCircle size={16} />} keyLabel="Plano" data={cancellationsBreakdown} />
+            <BreakdownTable title="Não Renovados por Plano" icon={<UserX size={16} />} keyLabel="Plano" data={nonRenewalsBreakdown} />
+            <BreakdownTable title="Cancelamentos por Motivo" icon={<Tag size={16} />} keyLabel="Motivo" data={cancellationsByReason} />
           </div>
         </div>
       </div>

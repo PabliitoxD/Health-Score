@@ -30,24 +30,28 @@ export const computeLogoChurn = (periodCount, cancellationsInPeriod) => {
 
 const PLAN_ORDER = ['Start', 'Pro', 'Scale', 'Enterprise'];
 
-// Agrupa itens (clientes, cancelamentos, não-renovados...) por plano,
-// somando contagem e MRR de cada um, mais uma linha de Total.
-export const computePlanBreakdown = (items, valueField = 'mrr') => {
+// Agrupa itens (clientes, cancelamentos, não-renovados...) por um campo
+// qualquer (plano, motivo...), somando contagem e MRR, mais uma linha de
+// Total. Sem `order`, ordena pela contagem (maior primeiro).
+export const computeBreakdown = (items, { groupField = 'tier', valueField = 'mrr', order = null, fallbackLabel = 'Não informado' } = {}) => {
   const groups = {};
   items.forEach((item) => {
-    const tier = item.tier || 'Sem Plano';
-    if (!groups[tier]) groups[tier] = { tier, count: 0, mrr: 0 };
-    groups[tier].count += 1;
-    groups[tier].mrr += Number(item[valueField]) || 0;
+    const key = item[groupField] || fallbackLabel;
+    if (!groups[key]) groups[key] = { key, count: 0, mrr: 0 };
+    groups[key].count += 1;
+    groups[key].mrr += Number(item[valueField]) || 0;
   });
 
   const breakdown = Object.values(groups).sort((a, b) => {
-    const ai = PLAN_ORDER.indexOf(a.tier);
-    const bi = PLAN_ORDER.indexOf(b.tier);
-    if (ai === -1 && bi === -1) return a.tier.localeCompare(b.tier);
-    if (ai === -1) return 1;
-    if (bi === -1) return -1;
-    return ai - bi;
+    if (order) {
+      const ai = order.indexOf(a.key);
+      const bi = order.indexOf(b.key);
+      if (ai === -1 && bi === -1) return a.key.localeCompare(b.key);
+      if (ai === -1) return 1;
+      if (bi === -1) return -1;
+      return ai - bi;
+    }
+    return b.count - a.count;
   });
 
   const total = breakdown.reduce(
@@ -57,3 +61,6 @@ export const computePlanBreakdown = (items, valueField = 'mrr') => {
 
   return { breakdown, total };
 };
+
+export const computePlanBreakdown = (items, valueField = 'mrr') =>
+  computeBreakdown(items, { groupField: 'tier', valueField, order: PLAN_ORDER, fallbackLabel: 'Sem Plano' });
