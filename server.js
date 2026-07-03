@@ -1,17 +1,23 @@
 import express from 'express';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
+import { loadEnvFile } from './server/loadEnv.js';
 import { mockCustomersRaw, mockCancellations, mockNonRenewals } from './server/fixtures/mockCustomers.js';
 import { mockSurveys, mockSurveyResponses } from './server/fixtures/mockSurveys.js';
+import { fetchFromExternalApi } from './server/externalApi.js';
+import { readCustomerSnapshot, writeCustomerSnapshot } from './server/customerSnapshot.js';
+
+loadEnvFile();
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const app = express();
 app.use(express.json({ limit: '10mb' }));
 
-// Quando definida, os dados passam a vir da API real em vez do mock.
-// Contrato esperado: GET <EXTERNAL_API_URL> retornando { customers: [...], cancellations: [...], nonRenewals: [...] }
-// no mesmo formato bruto usado em server/fixtures/mockCustomers.js.
+// Quando definida, os dados passam a vir da API real (Basic Auth via
+// EXTERNAL_API_USER/EXTERNAL_API_PASS) em vez do mock — ver server/externalApi.js.
 const EXTERNAL_API_URL = process.env.EXTERNAL_API_URL || null;
+// Intervalo entre sincronizações periódicas com a API real (não se aplica ao mock).
+const SYNC_INTERVAL_MINUTES = Number(process.env.SYNC_INTERVAL_MINUTES) || 60;
 
 // In-memory store — reset quando o servidor reinicia
 let store = { customers: [], cancellations: [], nonRenewals: [], updatedAt: null };
@@ -58,6 +64,13 @@ function transformCustomer(row) {
     lastChargeDate: row['Data Última Cobrança'] || null,
     lastProduct: row['Último Produto'] || null,
     id_fk_plan: row['id_fk_plan'],
+    email: row['E-mail'] || null,
+    phone: row['Telefone'] || null,
+    tpv: {
+      pix: { percent: Number(row['TPV Pix Percentual']) || 0, total: Number(row['TPV Pix Total']) || 0 },
+      cartao: { percent: Number(row['TPV Cartão Percentual']) || 0, total: Number(row['TPV Cartão Total']) || 0 },
+      boleto: { percent: Number(row['TPV Boleto Percentual']) || 0, total: Number(row['TPV Boleto Total']) || 0 },
+    },
   };
 }
 
@@ -139,38 +152,51 @@ function calcRevenueRetention(customers, cancellations) {
 
 // ─── Fonte de dados: API externa (quando configurada) ou mock ───────────────
 
-// Stub — implementar quando a URL da API real estiver disponível.
-// Deve devolver { customers, cancellations } no mesmo formato bruto do mock.
-async function fetchFromExternalApi(url) {
-  throw new Error(
-    `Integração com API externa ainda não implementada (EXTERNAL_API_URL=${url}). ` +
-    'Implemente fetchFromExternalApi() em server.js.'
-  );
-}
-
-async function loadStore() {
-  let rawCustomers = mockCustomersRaw;
-  let rawCancellations = mockCancellations;
-  let rawNonRenewals = mockNonRenewals;
-
+// isInitialLoad=true (boot): falha na API real cai pro mock, já que não há
+// nenhum dado carregado ainda. isInitialLoad=false (sincronização periódica):
+// falha MANTÉM o store atual — com 1000+ clientes reais em produção, uma
+// falha temporária da API não pode reverter tudo pros 13 clientes fictícios
+// do mock.
+async function loadStore(isInitialLoad) {
   if (EXTERNAL_API_URL) {
     try {
-      const data = await fetchFromExternalApi(EXTERNAL_API_URL);
-      rawCustomers = data.customers || [];
-      rawCancellations = data.cancellations || [];
-      rawNonRenewals = data.nonRenewals || [];
+      const snapshot = readCustomerSnapshot();
+      const previousScores = Object.fromEntries(Object.entries(snapshot).map(([id, s]) => [id, s.score]));
+      const previousMrrs = Object.fromEntries(Object.entries(snapshot).map(([id, s]) => [id, s.mrr]));
+
+      const data = await fetchFromExternalApi(EXTERNAL_API_URL, previousScores, previousMrrs);
+      const customers = (data.customers || []).map(transformCustomer).map(enrichCustomer);
+
+      store = {
+        customers,
+        cancellations: data.cancellations || [],
+        nonRenewals: data.nonRenewals || [],
+        updatedAt: new Date().toISOString(),
+      };
+
+      writeCustomerSnapshot(Object.fromEntries(customers.map((c) => [c.id, { score: c.score, mrr: c.mrr }])));
+      console.log(`[loadStore] Sincronizado com a API externa: ${store.customers.length} clientes, ${store.cancellations.length} cancelamentos, ${store.nonRenewals.length} não renovados`);
+      return;
     } catch (err) {
-      console.error(`[loadStore] Falha ao buscar API externa: ${err.message}`);
-      console.warn('[loadStore] Usando dados mockados como fallback.');
+      console.error(`[loadStore] Falha ao sincronizar com a API externa: ${err.message}`);
+      if (!isInitialLoad) {
+        console.warn('[loadStore] Mantendo os dados da última sincronização bem-sucedida.');
+        return;
+      }
+      console.warn('[loadStore] Carga inicial sem dado nenhum ainda — usando mock como fallback.');
     }
-  } else {
+  } else if (isInitialLoad) {
     console.warn('[loadStore] EXTERNAL_API_URL não configurada — usando dados mockados.');
+  } else {
+    // Sem EXTERNAL_API_URL não há nada pra sincronizar periodicamente; o
+    // mock já foi carregado na carga inicial e não muda sozinho.
+    return;
   }
 
   store = {
-    customers: rawCustomers.map(transformCustomer).map(enrichCustomer),
-    cancellations: rawCancellations,
-    nonRenewals: rawNonRenewals,
+    customers: mockCustomersRaw.map(transformCustomer).map(enrichCustomer),
+    cancellations: mockCancellations,
+    nonRenewals: mockNonRenewals,
     updatedAt: new Date().toISOString(),
   };
 
@@ -261,7 +287,12 @@ app.get('/{*path}', (_req, res) => {
   res.sendFile(join(__dirname, 'dist', 'index.html'));
 });
 
-await loadStore();
+await loadStore(true);
+
+if (EXTERNAL_API_URL) {
+  setInterval(() => loadStore(false), SYNC_INTERVAL_MINUTES * 60 * 1000);
+  console.log(`[loadStore] Sincronização periódica a cada ${SYNC_INTERVAL_MINUTES} minuto(s).`);
+}
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => console.log(`Health Score rodando em :${PORT}`));
