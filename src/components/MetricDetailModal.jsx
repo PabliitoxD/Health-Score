@@ -14,7 +14,7 @@ const MetricDetailModal = ({ title, formula, summary, columns, rows = [], totalR
 
   return (
     <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-      <GlassCard variant="strong" className="shadow-2xl w-full max-w-lg overflow-hidden max-h-[90vh] flex flex-col">
+      <GlassCard variant="strong" className="shadow-2xl w-full max-w-2xl overflow-hidden max-h-[90vh] flex flex-col">
         <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 dark:border-slate-800 flex-shrink-0">
           <h2 className="text-base font-bold text-slate-900 dark:text-white">{title}</h2>
           <button
@@ -48,18 +48,18 @@ const MetricDetailModal = ({ title, formula, summary, columns, rows = [], totalR
               <table className="w-full text-left text-sm">
                 <thead>
                   <tr className="text-[10px] text-slate-400 dark:text-slate-500 uppercase tracking-wider">
-                    {columns.map((col) => (
-                      <th key={col.key} className={`pb-2 font-semibold ${col.align === 'right' ? 'text-right' : ''}`}>{col.label}</th>
+                    {columns.map((col, i) => (
+                      <th key={col.key} className={`pb-2 pl-3 first:pl-0 font-semibold ${col.align === 'right' ? 'text-right' : ''} ${i > 0 ? 'whitespace-nowrap' : ''}`}>{col.label}</th>
                     ))}
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
                   {rows.map((row, i) => (
                     <tr key={i}>
-                      {columns.map((col) => (
+                      {columns.map((col, j) => (
                         <td
                           key={col.key}
-                          className={`py-2 ${col.align === 'right' ? 'text-right font-medium text-slate-900 dark:text-white' : 'text-slate-600 dark:text-slate-400'}`}
+                          className={`py-2 pl-3 first:pl-0 ${j > 0 ? 'whitespace-nowrap' : ''} ${col.align === 'right' ? 'text-right font-medium text-slate-900 dark:text-white' : 'text-slate-600 dark:text-slate-400'}`}
                         >
                           {row[col.key]}
                         </td>
@@ -71,7 +71,7 @@ const MetricDetailModal = ({ title, formula, summary, columns, rows = [], totalR
                       {columns.map((col, i) => (
                         <td
                           key={col.key}
-                          className={`py-2 font-bold text-slate-900 dark:text-white ${col.align === 'right' ? 'text-right' : ''}`}
+                          className={`py-2 pl-3 first:pl-0 font-bold text-slate-900 dark:text-white ${col.align === 'right' ? 'text-right' : ''} ${i > 0 ? 'whitespace-nowrap' : ''}`}
                         >
                           {i === 0 ? 'Total' : (totalRow[col.key] ?? '')}
                         </td>
