@@ -171,7 +171,12 @@ function extractCancellation(detail, row) {
 // sincronização anterior (ver server/customerSnapshot.js). "Score anterior"
 // é métrica nossa (a API não tem). "MRR anterior" só cai nesse fallback
 // quando a conta tem menos de 2 renovações no histórico (cliente muito novo).
-export async function fetchFromExternalApi(baseUrl, previousScores = {}, previousMrrs = {}) {
+//
+// onAccount(row, cancellation, nonRenewal): chamado a cada conta processada,
+// ANTES de terminar a sincronização inteira — permite ao chamador (server.js)
+// ir atualizando o painel ao vivo, em vez de deixar tudo no escuro até o
+// ciclo completo (que com ~1000+ contas reais leva vários minutos).
+export async function fetchFromExternalApi(baseUrl, previousScores = {}, previousMrrs = {}, onAccount = null) {
   const throttleMs = Number(process.env.EXTERNAL_API_THROTTLE_MS) || 150;
 
   const codes = await fetchPaidAccountCodes(baseUrl, throttleMs);
@@ -190,6 +195,8 @@ export async function fetchFromExternalApi(baseUrl, previousScores = {}, previou
     const { cancellation, nonRenewal } = extractCancellation(detail, row);
     if (cancellation) cancellations.push(cancellation);
     if (nonRenewal) nonRenewals.push(nonRenewal);
+
+    if (onAccount) onAccount(row, cancellation, nonRenewal);
 
     if ((i + 1) % 50 === 0 || i + 1 === codes.length) {
       console.log(`[externalApi] Detalhe: ${i + 1}/${codes.length} clientes processados`);

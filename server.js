@@ -4,6 +4,7 @@ import { dirname, join } from 'path';
 import { loadEnvFile } from './server/loadEnv.js';
 import { fetchFromExternalApi } from './server/externalApi.js';
 import { readCustomerSnapshot, writeCustomerSnapshot } from './server/customerSnapshot.js';
+import { readStoreCache, writeStoreCache } from './server/storeCache.js';
 
 loadEnvFile();
 
@@ -191,13 +192,16 @@ function calcRevenueRetention(customers, cancellations) {
 
 // ─── Fonte de dados: API externa (obrigatória, sem fallback pra mock) ───────
 
-// isInitialLoad=true (boot): sem EXTERNAL_API_URL configurada, o servidor
-// recusa a subir — não tem mais dado mockado pra usar de fallback. Falha na
-// própria chamada à API (rede, credencial, etc.) não derruba o processo: o
-// servidor sobe vazio e a sincronização periódica tenta de novo.
-// isInitialLoad=false (sincronização periódica): falha MANTÉM o store
-// atual — com clientes reais em produção, uma falha temporária da API não
-// pode esvaziar os dados que já estavam servindo o painel.
+// A sincronização com a conta real leva vários minutos (paginação de contas +
+// detalhe de cada cliente, throttled). Em vez de deixar o painel "no escuro"
+// até o ciclo inteiro terminar, cada conta processada atualiza store.customers
+// AO VIVO conforme chega (ver onAccount abaixo) — o dashboard já vai mostrando
+// e refrescando clientes um a um durante a sincronização.
+//
+// Se a sincronização falhar no meio do caminho, desfazemos essas atualizações
+// parciais e voltamos pro último estado bom conhecido (lastGoodStore) — falha
+// numa sincronização (inicial ou periódica) nunca deve deixar o store numa
+// mistura de dado novo pela metade e dado velho.
 async function loadStore(isInitialLoad) {
   if (!EXTERNAL_API_URL) {
     throw new Error(
@@ -206,12 +210,21 @@ async function loadStore(isInitialLoad) {
     );
   }
 
+  const lastGoodStore = store;
+
   try {
     const snapshot = readCustomerSnapshot();
     const previousScores = Object.fromEntries(Object.entries(snapshot).map(([id, s]) => [id, s.score]));
     const previousMrrs = Object.fromEntries(Object.entries(snapshot).map(([id, s]) => [id, s.mrr]));
 
-    const data = await fetchFromExternalApi(EXTERNAL_API_URL, previousScores, previousMrrs);
+    const liveCustomersById = new Map(lastGoodStore.customers.map((c) => [c.id, c]));
+
+    const data = await fetchFromExternalApi(EXTERNAL_API_URL, previousScores, previousMrrs, (row) => {
+      const enriched = enrichCustomer(transformCustomer(row));
+      liveCustomersById.set(enriched.id, enriched);
+      store = { ...lastGoodStore, customers: Array.from(liveCustomersById.values()) };
+    });
+
     const customers = (data.customers || []).map(transformCustomer).map(enrichCustomer);
 
     store = {
@@ -222,11 +235,13 @@ async function loadStore(isInitialLoad) {
     };
 
     writeCustomerSnapshot(Object.fromEntries(customers.map((c) => [c.id, { score: c.score, mrr: c.mrr }])));
+    writeStoreCache(store);
     console.log(`[loadStore] Sincronizado com a API externa: ${store.customers.length} clientes, ${store.cancellations.length} cancelamentos, ${store.nonRenewals.length} não renovados`);
   } catch (err) {
     console.error(`[loadStore] Falha ao sincronizar com a API externa: ${err.message}`);
+    store = lastGoodStore;
     if (isInitialLoad) {
-      console.warn('[loadStore] Carga inicial sem dados — o servidor sobe vazio; a próxima sincronização periódica tenta de novo.');
+      console.warn('[loadStore] Carga inicial sem sucesso — mantendo o cache em disco (se existir); a próxima sincronização periódica tenta de novo.');
     } else {
       console.warn('[loadStore] Mantendo os dados da última sincronização bem-sucedida.');
     }
@@ -334,10 +349,29 @@ app.get('/{*path}', (_req, res) => {
   res.sendFile(join(__dirname, 'dist', 'index.html'));
 });
 
-await loadStore(true);
+// Cache em disco do último sync bem-sucedido — carrega ANTES de qualquer
+// chamada de rede, pra o painel já subir com dado real (mesmo desatualizado)
+// em vez de vazio enquanto sincroniza de novo.
+const cachedStore = readStoreCache();
+if (cachedStore) {
+  store = cachedStore;
+  console.log(`[loadStore] Cache em disco carregado: ${store.customers.length} clientes (última sincronização: ${store.updatedAt}).`);
+}
 
-setInterval(() => loadStore(false), SYNC_INTERVAL_MINUTES * 60 * 1000);
-console.log(`[loadStore] Sincronização periódica a cada ${SYNC_INTERVAL_MINUTES} minuto(s).`);
-
+// O servidor sobe e já responde requisições imediatamente — a sincronização
+// roda em segundo plano, sem bloquear o boot. Antes disso, o deploy inteiro
+// ficava fora do ar até o primeiro sync completo (~15-20min com dados reais),
+// porque app.listen só era chamado depois do await.
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => console.log(`Health Score rodando em :${PORT}`));
+
+if (EXTERNAL_API_URL) {
+  loadStore(true).then(() => {
+    setInterval(() => loadStore(false), SYNC_INTERVAL_MINUTES * 60 * 1000);
+    console.log(`[loadStore] Sincronização periódica a cada ${SYNC_INTERVAL_MINUTES} minuto(s).`);
+  });
+} else {
+  console.error(
+    '[loadStore] EXTERNAL_API_URL não configurada — servidor no ar só com o cache em disco (se existir), sem sincronização.'
+  );
+}
