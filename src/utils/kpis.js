@@ -64,3 +64,28 @@ export const computeBreakdown = (items, { groupField = 'tier', valueField = 'mrr
 
 export const computePlanBreakdown = (items, valueField = 'mrr') =>
   computeBreakdown(items, { groupField: 'tier', valueField, order: PLAN_ORDER, fallbackLabel: 'Sem Plano' });
+
+// Agrega o TPV (Pix/Cartão/Boleto) de um conjunto de clientes. O percentual de
+// cada método é total do método ÷ soma dos três — não a média dos percentuais
+// individuais, que distorceria o resultado quando os clientes têm volumes
+// bem diferentes entre si.
+export const computeTpv = (customers) => {
+  const totals = customers.reduce(
+    (acc, c) => ({
+      pix: acc.pix + (c.tpv?.pix.total || 0),
+      cartao: acc.cartao + (c.tpv?.cartao.total || 0),
+      boleto: acc.boleto + (c.tpv?.boleto.total || 0),
+    }),
+    { pix: 0, cartao: 0, boleto: 0 }
+  );
+
+  const grandTotal = totals.pix + totals.cartao + totals.boleto;
+  const percent = (value) => (grandTotal > 0 ? (value / grandTotal) * 100 : 0);
+
+  return {
+    pix: { total: totals.pix, percent: percent(totals.pix) },
+    cartao: { total: totals.cartao, percent: percent(totals.cartao) },
+    boleto: { total: totals.boleto, percent: percent(totals.boleto) },
+    grandTotal,
+  };
+};

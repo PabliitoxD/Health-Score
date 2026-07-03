@@ -3,12 +3,13 @@ import {
   DollarSign, Landmark, TrendingDown, Percent, Sparkles,
   ArrowUpCircle, ArrowDownCircle, UserMinus, Smile, Gem, Star,
   UserPlus, Users, RefreshCw, XCircle, UserX, Tag,
+  Wallet, QrCode, CreditCard, Receipt,
 } from 'lucide-react';
 import { getCustomers, getCancellations, getNonRenewals } from '../services/api';
 import { getResponses } from '../utils/surveyStorage';
 import { SURVEY_META } from '../utils/surveyEligibility';
 import { computeNps, computeCsat } from '../utils/surveyKpis';
-import { computeRevenueRetention, computeLogoChurn, computePlanBreakdown, computeBreakdown } from '../utils/kpis';
+import { computeRevenueRetention, computeLogoChurn, computePlanBreakdown, computeBreakdown, computeTpv } from '../utils/kpis';
 import { applyDateFilter } from '../utils/dateFilter';
 import { formatCurrency, formatPercent } from '../utils/formatters';
 import GlassCard from './ui/GlassCard';
@@ -181,6 +182,7 @@ const CompanyView = () => {
   const cancellationsBreakdown = computePlanBreakdown(cancellationsInPeriod);
   const nonRenewalsBreakdown = computePlanBreakdown(nonRenewalsInPeriod);
   const cancellationsByReason = computeBreakdown(cancellationsInPeriod, { groupField: 'reason' });
+  const tpv = computeTpv(dateFilteredAll);
 
   // ─── Detalhamento por card (abre no modal ao clicar) ────────────────────
 
@@ -189,6 +191,20 @@ const CompanyView = () => {
   const contractedCustomers = retainedCustomers.filter((c) => c.mrr < c.previousMrr);
   const csatResponses = responsesInPeriod.filter((r) => r.type !== 'nps');
   const npsResponses = responsesInPeriod.filter((r) => r.type === 'nps');
+
+  const tpvMethodDetail = (methodKey, methodLabel) => ({
+    title: `TPV ${methodLabel}`,
+    formula: `Soma do TPV (volume transacionado) gerado via ${methodLabel} por todos os clientes no período selecionado.`,
+    columns: [
+      { key: 'name', label: 'Cliente' }, { key: 'tier', label: 'Plano' },
+      { key: 'value', label: 'Valor', align: 'right' }, { key: 'percent', label: '% do Cliente', align: 'right' },
+    ],
+    rows: dateFilteredAll
+      .filter((c) => c.tpv[methodKey].total > 0)
+      .map((c) => ({ name: c.name, tier: c.tier, value: formatCurrency(c.tpv[methodKey].total), percent: formatPercent(c.tpv[methodKey].percent) })),
+    totalRow: { value: formatCurrency(tpv[methodKey].total) },
+    emptyText: 'Nenhum TPV no período',
+  });
 
   const details = {
     mrrTotal: {
@@ -330,6 +346,28 @@ const CompanyView = () => {
       totalRow: { value: formatCurrency(totalMRR) },
       emptyText: 'Nenhum cliente ativo no período',
     },
+    tpvTotal: {
+      title: 'TPV Total',
+      formula: 'Soma do volume total transacionado (Pix + Cartão + Boleto) por todos os clientes no período selecionado.',
+      columns: [
+        { key: 'name', label: 'Cliente' }, { key: 'tier', label: 'Plano' },
+        { key: 'pix', label: 'Pix', align: 'right' }, { key: 'cartao', label: 'Cartão', align: 'right' },
+        { key: 'boleto', label: 'Boleto', align: 'right' }, { key: 'total', label: 'Total', align: 'right' },
+      ],
+      rows: dateFilteredAll.map((c) => ({
+        name: c.name, tier: c.tier,
+        pix: formatCurrency(c.tpv.pix.total), cartao: formatCurrency(c.tpv.cartao.total), boleto: formatCurrency(c.tpv.boleto.total),
+        total: formatCurrency(c.tpv.pix.total + c.tpv.cartao.total + c.tpv.boleto.total),
+      })),
+      totalRow: {
+        pix: formatCurrency(tpv.pix.total), cartao: formatCurrency(tpv.cartao.total),
+        boleto: formatCurrency(tpv.boleto.total), total: formatCurrency(tpv.grandTotal),
+      },
+      emptyText: 'Nenhum TPV no período',
+    },
+    tpvPix: tpvMethodDetail('pix', 'Pix'),
+    tpvCartao: tpvMethodDetail('cartao', 'Cartão'),
+    tpvBoleto: tpvMethodDetail('boleto', 'Boleto'),
   };
 
   const cards = [
@@ -428,12 +466,34 @@ const CompanyView = () => {
           </div>
         </div>
 
-        <div>
+        <div className="mb-10">
           <SectionTitle>Cancelamento</SectionTitle>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <BreakdownTable title="Cancelamentos por Plano" icon={<XCircle size={16} />} keyLabel="Plano" data={cancellationsBreakdown} />
             <BreakdownTable title="Não Renovados por Plano" icon={<UserX size={16} />} keyLabel="Plano" data={nonRenewalsBreakdown} />
             <BreakdownTable title="Cancelamentos por Motivo" icon={<Tag size={16} />} keyLabel="Motivo" data={cancellationsByReason} />
+          </div>
+        </div>
+
+        <div>
+          <SectionTitle>TPV Gerado</SectionTitle>
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+            <MetricCard
+              icon={<Wallet size={18} />} iconBg="bg-brand-50 dark:bg-brand-500/10" iconColor="text-brand-600 dark:text-brand-400"
+              label="TPV Total" value={formatCurrency(tpv.grandTotal)} onClick={() => setSelectedDetail(details.tpvTotal)}
+            />
+            <MetricCard
+              icon={<QrCode size={18} />} iconBg="bg-emerald-50 dark:bg-emerald-500/10" iconColor="text-emerald-600 dark:text-emerald-400"
+              label="TPV Pix" value={formatCurrency(tpv.pix.total)} hint={formatPercent(tpv.pix.percent)} onClick={() => setSelectedDetail(details.tpvPix)}
+            />
+            <MetricCard
+              icon={<CreditCard size={18} />} iconBg="bg-brand-50 dark:bg-brand-500/10" iconColor="text-brand-600 dark:text-brand-400"
+              label="TPV Cartão" value={formatCurrency(tpv.cartao.total)} hint={formatPercent(tpv.cartao.percent)} onClick={() => setSelectedDetail(details.tpvCartao)}
+            />
+            <MetricCard
+              icon={<Receipt size={18} />} iconBg="bg-amber-50 dark:bg-amber-500/10" iconColor="text-amber-600 dark:text-amber-400"
+              label="TPV Boleto" value={formatCurrency(tpv.boleto.total)} hint={formatPercent(tpv.boleto.percent)} onClick={() => setSelectedDetail(details.tpvBoleto)}
+            />
           </div>
         </div>
       </div>
