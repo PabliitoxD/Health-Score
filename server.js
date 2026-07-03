@@ -2,7 +2,6 @@ import express from 'express';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 import { loadEnvFile } from './server/loadEnv.js';
-import { mockCustomersRaw, mockCancellations, mockNonRenewals } from './server/fixtures/mockCustomers.js';
 import { mockSurveys, mockSurveyResponses } from './server/fixtures/mockSurveys.js';
 import { fetchFromExternalApi } from './server/externalApi.js';
 import { readCustomerSnapshot, writeCustomerSnapshot } from './server/customerSnapshot.js';
@@ -13,10 +12,10 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const app = express();
 app.use(express.json({ limit: '10mb' }));
 
-// Quando definida, os dados passam a vir da API real (Basic Auth via
-// EXTERNAL_API_USER/EXTERNAL_API_PASS) em vez do mock — ver server/externalApi.js.
+// Obrigatória — dados de clientes vêm sempre da API real, sem fallback pra
+// mock (ver server/externalApi.js e .env.example).
 const EXTERNAL_API_URL = process.env.EXTERNAL_API_URL || null;
-// Intervalo entre sincronizações periódicas com a API real (não se aplica ao mock).
+// Intervalo entre sincronizações periódicas com a API real.
 const SYNC_INTERVAL_MINUTES = Number(process.env.SYNC_INTERVAL_MINUTES) || 60;
 
 // In-memory store — reset quando o servidor reinicia
@@ -150,57 +149,48 @@ function calcRevenueRetention(customers, cancellations) {
   return { nrr, grr, newMrr, expansionMrr, contractionMrr, churnedMrr };
 }
 
-// ─── Fonte de dados: API externa (quando configurada) ou mock ───────────────
+// ─── Fonte de dados: API externa (obrigatória, sem fallback pra mock) ───────
 
-// isInitialLoad=true (boot): falha na API real cai pro mock, já que não há
-// nenhum dado carregado ainda. isInitialLoad=false (sincronização periódica):
-// falha MANTÉM o store atual — com 1000+ clientes reais em produção, uma
-// falha temporária da API não pode reverter tudo pros 13 clientes fictícios
-// do mock.
+// isInitialLoad=true (boot): sem EXTERNAL_API_URL configurada, o servidor
+// recusa a subir — não tem mais dado mockado pra usar de fallback. Falha na
+// própria chamada à API (rede, credencial, etc.) não derruba o processo: o
+// servidor sobe vazio e a sincronização periódica tenta de novo.
+// isInitialLoad=false (sincronização periódica): falha MANTÉM o store
+// atual — com clientes reais em produção, uma falha temporária da API não
+// pode esvaziar os dados que já estavam servindo o painel.
 async function loadStore(isInitialLoad) {
-  if (EXTERNAL_API_URL) {
-    try {
-      const snapshot = readCustomerSnapshot();
-      const previousScores = Object.fromEntries(Object.entries(snapshot).map(([id, s]) => [id, s.score]));
-      const previousMrrs = Object.fromEntries(Object.entries(snapshot).map(([id, s]) => [id, s.mrr]));
-
-      const data = await fetchFromExternalApi(EXTERNAL_API_URL, previousScores, previousMrrs);
-      const customers = (data.customers || []).map(transformCustomer).map(enrichCustomer);
-
-      store = {
-        customers,
-        cancellations: data.cancellations || [],
-        nonRenewals: data.nonRenewals || [],
-        updatedAt: new Date().toISOString(),
-      };
-
-      writeCustomerSnapshot(Object.fromEntries(customers.map((c) => [c.id, { score: c.score, mrr: c.mrr }])));
-      console.log(`[loadStore] Sincronizado com a API externa: ${store.customers.length} clientes, ${store.cancellations.length} cancelamentos, ${store.nonRenewals.length} não renovados`);
-      return;
-    } catch (err) {
-      console.error(`[loadStore] Falha ao sincronizar com a API externa: ${err.message}`);
-      if (!isInitialLoad) {
-        console.warn('[loadStore] Mantendo os dados da última sincronização bem-sucedida.');
-        return;
-      }
-      console.warn('[loadStore] Carga inicial sem dado nenhum ainda — usando mock como fallback.');
-    }
-  } else if (isInitialLoad) {
-    console.warn('[loadStore] EXTERNAL_API_URL não configurada — usando dados mockados.');
-  } else {
-    // Sem EXTERNAL_API_URL não há nada pra sincronizar periodicamente; o
-    // mock já foi carregado na carga inicial e não muda sozinho.
-    return;
+  if (!EXTERNAL_API_URL) {
+    throw new Error(
+      'EXTERNAL_API_URL não configurada. Configure EXTERNAL_API_URL/EXTERNAL_API_USER/EXTERNAL_API_PASS ' +
+      '(veja .env.example) — o servidor não usa mais dados mockados.'
+    );
   }
 
-  store = {
-    customers: mockCustomersRaw.map(transformCustomer).map(enrichCustomer),
-    cancellations: mockCancellations,
-    nonRenewals: mockNonRenewals,
-    updatedAt: new Date().toISOString(),
-  };
+  try {
+    const snapshot = readCustomerSnapshot();
+    const previousScores = Object.fromEntries(Object.entries(snapshot).map(([id, s]) => [id, s.score]));
+    const previousMrrs = Object.fromEntries(Object.entries(snapshot).map(([id, s]) => [id, s.mrr]));
 
-  console.log(`[loadStore] ${store.customers.length} clientes, ${store.cancellations.length} cancelamentos, ${store.nonRenewals.length} não renovados carregados`);
+    const data = await fetchFromExternalApi(EXTERNAL_API_URL, previousScores, previousMrrs);
+    const customers = (data.customers || []).map(transformCustomer).map(enrichCustomer);
+
+    store = {
+      customers,
+      cancellations: data.cancellations || [],
+      nonRenewals: data.nonRenewals || [],
+      updatedAt: new Date().toISOString(),
+    };
+
+    writeCustomerSnapshot(Object.fromEntries(customers.map((c) => [c.id, { score: c.score, mrr: c.mrr }])));
+    console.log(`[loadStore] Sincronizado com a API externa: ${store.customers.length} clientes, ${store.cancellations.length} cancelamentos, ${store.nonRenewals.length} não renovados`);
+  } catch (err) {
+    console.error(`[loadStore] Falha ao sincronizar com a API externa: ${err.message}`);
+    if (isInitialLoad) {
+      console.warn('[loadStore] Carga inicial sem dados — o servidor sobe vazio; a próxima sincronização periódica tenta de novo.');
+    } else {
+      console.warn('[loadStore] Mantendo os dados da última sincronização bem-sucedida.');
+    }
+  }
 }
 
 // ─── Endpoints ───────────────────────────────────────────────────────────────
@@ -289,10 +279,8 @@ app.get('/{*path}', (_req, res) => {
 
 await loadStore(true);
 
-if (EXTERNAL_API_URL) {
-  setInterval(() => loadStore(false), SYNC_INTERVAL_MINUTES * 60 * 1000);
-  console.log(`[loadStore] Sincronização periódica a cada ${SYNC_INTERVAL_MINUTES} minuto(s).`);
-}
+setInterval(() => loadStore(false), SYNC_INTERVAL_MINUTES * 60 * 1000);
+console.log(`[loadStore] Sincronização periódica a cada ${SYNC_INTERVAL_MINUTES} minuto(s).`);
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => console.log(`Health Score rodando em :${PORT}`));

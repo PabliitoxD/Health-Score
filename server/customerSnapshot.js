@@ -2,13 +2,10 @@
 // sincronização com a API real — usados como "anterior" na próxima:
 //
 // - Score: é métrica nossa (calculada), a API não tem histórico disso.
-// - MRR: a API deveria trazer isso via plan.renewals/upgrades_downgrades,
-//   mas essas listas vieram sempre vazias nos testes (mesmo em conta paga
-//   há quase 2 anos) — usamos nosso snapshot como fallback pra Expansion/
-//   Contraction/NRR/GRR continuarem funcionando enquanto isso não muda.
-//
-// Só usado no modo API real; o mock usa os campos estáticos "Score
-// Anterior"/"MRR Anterior" que já vêm em server/fixtures/mockCustomers.js.
+// - MRR: normalmente vem de plan.renewals[1].value (ver server/externalApi.js),
+//   mas esse snapshot serve de fallback pra contas com menos de 2 renovações
+//   no histórico (cliente muito novo) — assim Expansion/Contraction/NRR/GRR
+//   continuam funcionando mesmo pra quem ainda não tem histórico suficiente.
 
 import { readFileSync, writeFileSync, mkdirSync, existsSync } from 'fs';
 import { dirname, join } from 'path';

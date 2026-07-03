@@ -103,8 +103,7 @@ function derivePreviousMrrFromHistory(plano) {
 }
 
 // Achata o detalhe aninhado de uma conta pro mesmo formato de linha que
-// transformCustomer (server.js) já espera — as mesmas chaves usadas em
-// server/fixtures/mockCustomers.js.
+// transformCustomer (server.js) já espera.
 function adaptAccountDetail(detail, previousScore, previousMrrSnapshot) {
   const producer = detail.producer || {};
   const plan = detail.plan || {};
