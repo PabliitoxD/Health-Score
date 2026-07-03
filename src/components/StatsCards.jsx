@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import {
   Activity, AlertTriangle, CheckCircle2, TrendingDown, TrendingUp, Percent,
   Users, CreditCard, ArrowUpRight, ArrowDownRight, Info, ShieldCheck,
@@ -19,28 +20,50 @@ const METRIC_TOOLTIPS = {
   activeCount: 'Total de clientes com plano ativo no momento.',
 };
 
-// Posicionada absolute relativa ao Card inteiro (não ao ícone) — evita
-// que a caixa de texto, mais alta que um card, estoure sobre as linhas abaixo.
+// Renderizada via portal em document.body: cada GlassCard tem seu próprio
+// backdrop-filter, que cria um stacking context isolado — um z-index alto
+// preso dentro de um card fica "atrás" de cards seguintes no grid. O portal
+// escapa dessa árvore e posiciona a caixa via coordenadas de viewport (fixed).
+const TOOLTIP_WIDTH = 192; // w-48
+
 const MetricTooltip = ({ text }) => {
   const [visible, setVisible] = useState(false);
+  const [coords, setCoords] = useState(null);
+  const triggerRef = useRef(null);
+
+  const show = () => {
+    const rect = triggerRef.current?.getBoundingClientRect();
+    if (rect) {
+      setCoords({
+        top: rect.bottom + 8,
+        left: Math.max(8, Math.min(rect.right - TOOLTIP_WIDTH, window.innerWidth - TOOLTIP_WIDTH - 8)),
+      });
+    }
+    setVisible(true);
+  };
+
   return (
     <div
-      onMouseEnter={() => setVisible(true)}
+      ref={triggerRef}
+      onMouseEnter={show}
       onMouseLeave={() => setVisible(false)}
     >
       <Info size={13} className="text-slate-300 dark:text-slate-600 cursor-help" />
-      {visible && (
-        <div className="absolute top-full right-2 mt-2 w-48 max-w-[85vw] p-3 bg-slate-900 dark:bg-slate-700 text-slate-200 text-[11px] leading-relaxed rounded-xl shadow-xl z-20 pointer-events-none">
-          <div className="absolute bottom-full right-2 border-4 border-transparent border-b-slate-900 dark:border-b-slate-700" />
+      {visible && coords && createPortal(
+        <div
+          className="fixed p-3 bg-slate-900 dark:bg-slate-700 text-slate-200 text-[11px] leading-relaxed rounded-xl shadow-xl z-[999] pointer-events-none"
+          style={{ top: coords.top, left: coords.left, width: TOOLTIP_WIDTH }}
+        >
           {text}
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );
 };
 
 const Card = ({ icon, iconBg, iconColor, label, value, badge, badgeUp, tooltipKey }) => (
-  <GlassCard variant="default" className="p-5 relative">
+  <GlassCard variant="default" className="p-5">
     <div className="flex justify-between items-start mb-3">
       <div className={`p-2 ${iconBg} rounded-lg ${iconColor}`}>{icon}</div>
       <div className="flex items-center gap-2">
