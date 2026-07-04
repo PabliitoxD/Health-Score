@@ -43,6 +43,16 @@ chore(deps): atualiza lucide-react para v0.300.0
 
 ---
 
+## Autorização permanente de commit e push
+
+O deploy em produção (EasyPanel) é **sempre manual**, disparado pelo Pablo direto no painel — um `git push` para `main` não aciona deploy nenhum sozinho.
+
+Por isso, o agente está autorizado a fazer `git commit` e `git push` para `main` **sem pedir confirmação a cada vez**, assim que uma correção ou funcionalidade for concluída e validada (build passando, testado quando aplicável). Não é necessário perguntar "posso commitar?" antes — só avisar o que foi commitado depois.
+
+Isso não se aplica a ações destrutivas (force push, reset --hard, exclusão de branches) nem a mudanças em `.env`/segredos — essas continuam exigindo confirmação explícita.
+
+---
+
 ## Versionamento
 
 Este projeto segue [Semantic Versioning](https://semver.org/):
