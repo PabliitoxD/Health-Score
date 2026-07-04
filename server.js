@@ -88,22 +88,40 @@ function transformCustomer(row) {
     trialPlan: row['Trial Plano'] || 'no',
     cancellationRequested: !!row['Cancelamento Solicitado'],
     hasPaymentFailure: !!row['Falha Pagamento'],
+    everPaid: !!row['Teve Pagamento'],
   };
 }
 
-// Trial: plan.trial_plan === "yes" — ainda não é cliente pagante, contagem
-// à parte, não entra nas métricas de "ativos".
+// Janela de trial, em dias, contada por nós a partir da assinatura — não
+// confiamos só no campo trial_plan da API porque ele não parece virar
+// "finished"/"no" de forma confiável assim que os 7 dias acabam (conta que
+// nunca converteu fica com trial_plan="yes" indefinidamente). Depois desse
+// prazo, a conta some da tela de trial mesmo que a API ainda diga "yes".
+const TRIAL_WINDOW_DAYS = 7;
+
+// Trial: plan.trial_plan === "yes" E ainda dentro dos primeiros 7 dias desde
+// a assinatura. Passado esse prazo, sai da tela de trial mesmo que a API
+// ainda marque "yes" (ver TRIAL_WINDOW_DAYS acima).
 //
-// Cancelado: falha de pagamento SEMPRE conta como cancelado (não houve
-// renovação). Cancelamento por solicitação do cliente só passa a valer no
-// fim do período já pago — até lá a conta continua ativa (regra confirmada
-// com o time: "quando o cliente solicita o cancelamento, a conta é
-// cancelada ao final do período contratado"). Usamos a data da última
-// cobrança (fim do ciclo pago) como referência desse período.
+// Lead: nunca teve uma cobrança paga de verdade (everPaid=false) — trial que
+// não converteu, cadastro que ainda não completou a primeira cobrança, ou
+// plano Parceiro. Conta só pra número de cadastros, não é "ativo" nem
+// "cancelado" (nunca chegou a estar realmente ativo pra poder cancelar).
 //
-// Ativo: todo o resto.
+// Cancelado: só se aplica a quem JÁ foi um cliente pagante de verdade
+// (everPaid=true). Falha de pagamento sempre conta como cancelado (não
+// houve renovação). Cancelamento por solicitação do cliente só passa a
+// valer no fim do período já pago — até lá a conta continua ativa (regra
+// confirmada com o time: "quando o cliente solicita o cancelamento, a
+// conta é cancelada ao final do período contratado").
+//
+// Ativo: todo o resto (já foi pagante e não tem cancelamento efetivado).
 function deriveAccountStatus(c) {
-  if (c.trialPlan === 'yes') return 'trial';
+  const daysSinceJoin = c.joinDate ? Math.floor((Date.now() - new Date(c.joinDate).getTime()) / (1000 * 60 * 60 * 24)) : null;
+  const inTrialWindow = daysSinceJoin !== null && daysSinceJoin <= TRIAL_WINDOW_DAYS;
+
+  if (c.trialPlan === 'yes' && inTrialWindow) return 'trial';
+  if (!c.everPaid) return 'lead';
   if (c.hasPaymentFailure) return 'cancelled';
   if (c.cancellationRequested) {
     if (!c.lastChargeDate) return 'cancelled';

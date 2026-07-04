@@ -80,9 +80,10 @@ export const useCustomers = () => {
     [dateFilteredAll]
   );
 
-  // Gráficos do Dashboard: ativos + cancelados (indiferente do motivo), sem trial.
+  // Gráficos do Dashboard: ativos + cancelados (indiferente do motivo), sem
+  // trial e sem "lead" (conta que nunca teve pagamento de verdade).
   const chartCustomers = useMemo(
-    () => dateFilteredAll.filter((c) => c.accountStatus !== 'trial'),
+    () => dateFilteredAll.filter((c) => c.accountStatus === 'active' || c.accountStatus === 'cancelled'),
     [dateFilteredAll]
   );
 
@@ -101,12 +102,15 @@ export const useCustomers = () => {
     [allCancellations, dateFilter, customDateRange]
   );
 
+  // Clientes: só trial, ativo ou cancelado — "lead" nunca teve pagamento de
+  // verdade (trial que não converteu, cadastro ainda sem 1ª cobrança), conta
+  // só pro número de cadastros da Empresa, não aparece aqui.
   const customers = useMemo(
     () =>
       dateFilteredAll.filter((c) => {
         const matchesSearch = c.name.toLowerCase().includes(searchTerm.toLowerCase());
         const matchesStatus = filterStatus === 'All' || c.status === filterStatus;
-        return matchesSearch && matchesStatus;
+        return c.accountStatus !== 'lead' && matchesSearch && matchesStatus;
       }),
     [dateFilteredAll, searchTerm, filterStatus]
   );

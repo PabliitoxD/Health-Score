@@ -139,10 +139,16 @@ function adaptAccountDetail(detail, previousScore, previousMrrSnapshot) {
     'TPV Cartão Total': tpv.cartao?.total_value,
     'TPV Boleto Percentual': tpv.boleto?.percent,
     'TPV Boleto Total': tpv.boleto?.total_value,
-    // Usados pra classificar a conta em trial/ativa/cancelada (ver deriveAccountStatus em server.js).
+    // Usados pra classificar a conta em trial/ativa/cancelada/lead (ver
+    // deriveAccountStatus em server.js).
     'Trial Plano': plan.trial_plan || 'no',
     'Cancelamento Solicitado': !!clientRequest.cancelled,
     'Falha Pagamento': hasPaymentFailure,
+    // Prova de que a conta já teve pelo menos uma cobrança paga de verdade —
+    // sem isso, "cancelado"/"ativo" não se aplicam (nunca foi cliente
+    // pagante de fato, só um trial que não converteu ou um cadastro que
+    // ainda não chegou a pagar a primeira cobrança).
+    'Teve Pagamento': (plan.renewals || []).some((r) => r.status === 'paid'),
   };
 }
 

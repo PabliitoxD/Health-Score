@@ -75,6 +75,8 @@ const SectionTitle = ({ children }) => (
 
 const npsCategory = (score) => (score >= 9 ? 'Promotor' : score >= 7 ? 'Neutro' : 'Detrator');
 
+const ACCOUNT_STATUS_LABELS = { trial: 'Trial', active: 'Ativo', cancelled: 'Cancelado', lead: 'Lead' };
+
 const CompanyView = () => {
   const [customers, setCustomers] = useState([]);
   const [cancellations, setCancellations] = useState([]);
@@ -116,10 +118,28 @@ const CompanyView = () => {
     [customers, dateFilter, customDateRange]
   );
 
-  // Clientes sem previousMrr = primeira assinatura, dentro de dateFilteredAll.
-  const newCustomers = useMemo(
+  // Cadastro (headcount): primeira "assinatura" dentro de dateFilteredAll,
+  // sem filtrar por accountStatus — trial e lead contam aqui, como qualquer
+  // outro cadastro (só não são "clientes ativos").
+  const newRegistrations = useMemo(
     () => dateFilteredAll.filter((c) => c.previousMrr === null || c.previousMrr === undefined),
     [dateFilteredAll]
+  );
+
+  // Só clientes realmente ativos (já pagantes, sem cancelamento efetivado) —
+  // mesma base que o Dashboard usa pra MRR Total/ARPU/contagem de "ativos".
+  // Trial e lead (nunca tiveram pagamento) não entram aqui.
+  const activeCustomers = useMemo(
+    () => dateFilteredAll.filter((c) => c.accountStatus === 'active'),
+    [dateFilteredAll]
+  );
+
+  // New MRR/Novas Assinaturas: só entre quem já é cliente ativo de verdade
+  // (primeira cobrança paga já aconteceu) — cadastro em trial/lead ainda não
+  // é receita.
+  const newCustomers = useMemo(
+    () => activeCustomers.filter((c) => c.previousMrr === null || c.previousMrr === undefined),
+    [activeCustomers]
   );
 
   // Clientes existentes filtrados pela data da ÚLTIMA COBRANÇA — é quando a
@@ -127,7 +147,7 @@ const CompanyView = () => {
   // antigos raramente entraram dentro de um filtro estreito).
   const retainedCustomers = useMemo(
     () => applyDateFilter(
-      customers.filter((c) => c.previousMrr !== null && c.previousMrr !== undefined),
+      customers.filter((c) => c.accountStatus === 'active' && c.previousMrr !== null && c.previousMrr !== undefined),
       dateFilter, customDateRange, 'lastChargeDate'
     ),
     [customers, dateFilter, customDateRange]
@@ -165,8 +185,8 @@ const CompanyView = () => {
     );
   }
 
-  const count = dateFilteredAll.length;
-  const totalMRR = dateFilteredAll.reduce((a, c) => a + c.mrr, 0);
+  const count = activeCustomers.length;
+  const totalMRR = activeCustomers.reduce((a, c) => a + c.mrr, 0);
   const arpu = count ? totalMRR / count : 0;
   const logoChurnRate = computeLogoChurn(count, cancellationsInPeriod.length);
 
@@ -337,20 +357,20 @@ const CompanyView = () => {
     },
     registered: {
       title: 'Clientes Cadastrados',
-      formula: 'Clientes com primeira assinatura (sem histórico anterior) cujo cadastro caiu no período.',
+      formula: 'Todo cadastro novo (sem histórico anterior) cujo cadastro caiu no período — inclui trial e lead, é contagem de cadastro, não de cliente ativo.',
       columns: [
-        { key: 'name', label: 'Cliente' }, { key: 'tier', label: 'Plano' }, { key: 'joinDate', label: 'Entrada', align: 'right' },
+        { key: 'name', label: 'Cliente' }, { key: 'tier', label: 'Plano' }, { key: 'accountStatus', label: 'Status' }, { key: 'joinDate', label: 'Entrada', align: 'right' },
       ],
-      rows: newCustomers.map((c) => ({ name: c.name, tier: c.tier, joinDate: c.joinDate })),
+      rows: newRegistrations.map((c) => ({ name: c.name, tier: c.tier, accountStatus: ACCOUNT_STATUS_LABELS[c.accountStatus] ?? c.accountStatus, joinDate: c.joinDate })),
       emptyText: 'Nenhum cadastro no período',
     },
     active: {
       title: 'Total de Clientes Ativos',
-      formula: 'Todos os clientes ativos no período selecionado.',
+      formula: 'Clientes com plano pago e sem cancelamento efetivado no período selecionado. Trial e lead (nunca tiveram pagamento) não entram aqui.',
       columns: [
         { key: 'name', label: 'Cliente' }, { key: 'tier', label: 'Plano' }, { key: 'status', label: 'Status' }, { key: 'value', label: 'MRR', align: 'right' },
       ],
-      rows: dateFilteredAll.map((c) => ({ name: c.name, tier: c.tier, status: c.status, value: formatCurrency(c.mrr) })),
+      rows: activeCustomers.map((c) => ({ name: c.name, tier: c.tier, status: c.status, value: formatCurrency(c.mrr) })),
       totalRow: { value: formatCurrency(totalMRR) },
       emptyText: 'Nenhum cliente ativo no período',
     },
@@ -474,7 +494,7 @@ const CompanyView = () => {
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <MetricCard
               icon={<UserPlus size={18} />} iconBg="bg-emerald-50 dark:bg-emerald-500/10" iconColor="text-emerald-600 dark:text-emerald-400"
-              label="Clientes Cadastrados" value={newCustomers.length} onClick={() => setSelectedDetail(details.registered)}
+              label="Clientes Cadastrados" value={newRegistrations.length} onClick={() => setSelectedDetail(details.registered)}
             />
             <MetricCard
               icon={<Users size={18} />} iconBg="bg-violet-50 dark:bg-violet-500/10" iconColor="text-violet-600 dark:text-violet-400"

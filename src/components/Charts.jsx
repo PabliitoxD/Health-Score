@@ -46,6 +46,12 @@ const CustomTooltipMRR = ({ active, payload }) => {
   );
 };
 
+// Altura por linha e teto do "viewport" visível — acima disso o container
+// vira scroll, mas a barra em si sempre reflete TODOS os clientes por
+// completo (nada fica espremido/cortado como acontecia com altura fixa).
+const HEALTH_SCORE_ROW_HEIGHT = 28;
+const HEALTH_SCORE_VIEWPORT_MAX = 480;
+
 export const HealthScoreChart = ({ customers }) => {
   const { isDark } = useTheme();
   const tickColor = isDark ? '#94a3b8' : '#64748b';
@@ -57,20 +63,24 @@ export const HealthScoreChart = ({ customers }) => {
     status: c.status,
   }));
 
+  const chartHeight = Math.max(260, data.length * HEALTH_SCORE_ROW_HEIGHT);
+
   return (
-    <ResponsiveContainer width="100%" height={260}>
-      <BarChart data={data} layout="vertical" margin={{ left: 8, right: 24, top: 4, bottom: 4 }}>
-        <CartesianGrid horizontal={false} stroke={gridColor} />
-        <XAxis type="number" domain={[0, 100]} tick={{ fill: tickColor, fontSize: 11 }} tickLine={false} axisLine={false} />
-        <YAxis type="category" dataKey="name" width={110} tick={{ fill: tickColor, fontSize: 11 }} tickLine={false} axisLine={false} />
-        <Tooltip content={<CustomTooltipScore />} cursor={{ fill: isDark ? '#1e293b' : '#f8fafc' }} />
-        <Bar dataKey="score" radius={[0, 6, 6, 0]} maxBarSize={20}>
-          {data.map((entry, i) => (
-            <Cell key={i} fill={scoreColor(entry.score)} />
-          ))}
-        </Bar>
-      </BarChart>
-    </ResponsiveContainer>
+    <div style={{ maxHeight: HEALTH_SCORE_VIEWPORT_MAX, overflowY: 'auto' }}>
+      <ResponsiveContainer width="100%" height={chartHeight}>
+        <BarChart data={data} layout="vertical" margin={{ left: 8, right: 24, top: 4, bottom: 4 }}>
+          <CartesianGrid horizontal={false} stroke={gridColor} />
+          <XAxis type="number" domain={[0, 100]} tick={{ fill: tickColor, fontSize: 11 }} tickLine={false} axisLine={false} />
+          <YAxis type="category" dataKey="name" width={110} tick={{ fill: tickColor, fontSize: 11 }} tickLine={false} axisLine={false} />
+          <Tooltip content={<CustomTooltipScore />} cursor={{ fill: isDark ? '#1e293b' : '#f8fafc' }} />
+          <Bar dataKey="score" radius={[0, 6, 6, 0]} maxBarSize={20}>
+            {data.map((entry, i) => (
+              <Cell key={i} fill={scoreColor(entry.score)} />
+            ))}
+          </Bar>
+        </BarChart>
+      </ResponsiveContainer>
+    </div>
   );
 };
 
