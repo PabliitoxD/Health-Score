@@ -148,24 +148,42 @@ function adaptAccountDetail(detail, previousScore, previousMrrSnapshot) {
     // sem isso, "cancelado"/"ativo" não se aplicam (nunca foi cliente
     // pagante de fato, só um trial que não converteu ou um cadastro que
     // ainda não chegou a pagar a primeira cobrança).
-    'Teve Pagamento': (plan.renewals || []).some((r) => r.status === 'paid'),
+    //
+    // Três sinais, porque nenhum sozinho cobre todo mundo: contas antigas
+    // (testado em 2024) vêm com "renewals": [] — a API não guarda histórico
+    // de renovação tão longe, mesmo quando a conta pagou de verdade no
+    // passado ou está pagando agora mesmo (achado cruzando a lista de 303
+    // contas de referência fornecida pelo time — 2 delas tinham renewals
+    // vazio apesar de já terem sido/serem pagantes).
+    'Teve Pagamento':
+      (plan.renewals || []).some((r) => r.status === 'paid') ||
+      plan.trial_plan === 'finished' ||
+      Number(plan.value) > 0,
   };
 }
 
 // Separa o bloco de cancelamento de uma conta em "cancelado" (solicitação do
-// cliente, com motivo) ou "não renovado" (falha de pagamento) — os dois
-// conceitos que o produto já modela como distintos.
+// cliente, com motivo, OU conta que já pagou antes e voltou pro Gratuito) ou
+// "não renovado" (falha de pagamento).
+//
+// Descoberta testando a conta 89106111 (tinha 2 renovações pagas no
+// histórico): quando uma conta cancela de vez, a API reseta o plano pra
+// "Gratuito" SEM marcar isso em cancellation.client_request.cancelled nem em
+// payment_failure — os dois ficam vazios. Sem checar "voltou pro Gratuito
+// depois de já ter pago", essas contas nunca apareceriam como canceladas.
 function extractCancellation(detail, row) {
   const cancelamento = detail.cancellation || {};
   const paymentFailure = cancelamento.payment_failure || {};
   const clientRequest = cancelamento.client_request || {};
   const base = { id: row['Produtor'], name: row['Razão Social'], tier: row['Plano Atual'], mrr: row['Valor Plano Atual'] };
 
-  const cancellation = clientRequest.cancelled
-    ? { ...base, cancelDate: clientRequest.date, reason: clientRequest.reason }
+  const hasPaymentFailure = (paymentFailure.pending_invoices || 0) > 0 || !!paymentFailure.last_error_date;
+  const revertedToFree = !!row['Teve Pagamento'] && (row['Plano Atual'] === 'Gratuito' || Number(row['Valor Plano Atual']) === 0);
+
+  const cancellation = !hasPaymentFailure && (clientRequest.cancelled || revertedToFree)
+    ? { ...base, cancelDate: clientRequest.date || null, reason: clientRequest.reason || 'Cancelamento efetivado' }
     : null;
 
-  const hasPaymentFailure = (paymentFailure.pending_invoices || 0) > 0 || !!paymentFailure.last_error_date;
   const nonRenewal = hasPaymentFailure
     ? { ...base, cycleEndDate: paymentFailure.last_error_date, reason: paymentFailure.last_error_reason || 'Falha no pagamento' }
     : null;
@@ -182,11 +200,17 @@ function extractCancellation(detail, row) {
 // ANTES de terminar a sincronização inteira — permite ao chamador (server.js)
 // ir atualizando o painel ao vivo, em vez de deixar tudo no escuro até o
 // ciclo completo (que com ~1000+ contas reais leva vários minutos).
-export async function fetchFromExternalApi(baseUrl, previousScores = {}, previousMrrs = {}, onAccount = null) {
+//
+// knownCodes: códigos que já foram confirmados como pagantes de verdade em
+// algum momento (ver server/knownCodes.js) — sempre incluídos no detalhe,
+// mesmo que a varredura da listagem não os encontre mais (conta cancelada
+// volta pro Gratuito e some da varredura por id_fk_plan/plan_name).
+export async function fetchFromExternalApi(baseUrl, previousScores = {}, previousMrrs = {}, onAccount = null, knownCodes = []) {
   const throttleMs = Number(process.env.EXTERNAL_API_THROTTLE_MS) || 150;
 
-  const codes = await fetchPaidAccountCodes(baseUrl, throttleMs);
-  console.log(`[externalApi] Listagem concluída: ${codes.length} clientes com plano pago/trial pra buscar o detalhe.`);
+  const scannedCodes = await fetchPaidAccountCodes(baseUrl, throttleMs);
+  const codes = Array.from(new Set([...scannedCodes, ...knownCodes]));
+  console.log(`[externalApi] Listagem concluída: ${scannedCodes.length} na varredura + ${knownCodes.length} já conhecidos = ${codes.length} clientes pra buscar o detalhe.`);
 
   const customers = [];
   const cancellations = [];

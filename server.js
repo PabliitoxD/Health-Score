@@ -5,6 +5,7 @@ import { loadEnvFile } from './server/loadEnv.js';
 import { fetchFromExternalApi } from './server/externalApi.js';
 import { readCustomerSnapshot, writeCustomerSnapshot } from './server/customerSnapshot.js';
 import { readStoreCache, writeStoreCache } from './server/storeCache.js';
+import { readKnownCodes, writeKnownCodes } from './server/knownCodes.js';
 
 loadEnvFile();
 
@@ -109,11 +110,16 @@ const TRIAL_WINDOW_DAYS = 7;
 // "cancelado" (nunca chegou a estar realmente ativo pra poder cancelar).
 //
 // Cancelado: só se aplica a quem JÁ foi um cliente pagante de verdade
-// (everPaid=true). Falha de pagamento sempre conta como cancelado (não
-// houve renovação). Cancelamento por solicitação do cliente só passa a
-// valer no fim do período já pago — até lá a conta continua ativa (regra
-// confirmada com o time: "quando o cliente solicita o cancelamento, a
-// conta é cancelada ao final do período contratado").
+// (everPaid=true). Três sinais, em ordem de confiabilidade:
+// 1. Voltou pro Gratuito (mrr=0/tier="Gratuito") depois de já ter pago —
+//    sinal mais confiável: descobrimos testando a conta 89106111 que a API
+//    reseta o plano quando cancela de vez, SEM marcar isso em
+//    cancellation.client_request nem em payment_failure.
+// 2. Falha de pagamento (não houve renovação).
+// 3. Solicitação do cliente — só passa a valer no fim do período já pago;
+//    até lá a conta continua ativa (regra confirmada com o time: "quando o
+//    cliente solicita o cancelamento, a conta é cancelada ao final do
+//    período contratado").
 //
 // Ativo: todo o resto (já foi pagante e não tem cancelamento efetivado).
 function deriveAccountStatus(c) {
@@ -122,7 +128,10 @@ function deriveAccountStatus(c) {
 
   if (c.trialPlan === 'yes' && inTrialWindow) return 'trial';
   if (!c.everPaid) return 'lead';
-  if (c.hasPaymentFailure) return 'cancelled';
+
+  const revertedToFree = c.tier === 'Gratuito' || c.mrr === 0;
+  if (revertedToFree || c.hasPaymentFailure) return 'cancelled';
+
   if (c.cancellationRequested) {
     if (!c.lastChargeDate) return 'cancelled';
     return Date.now() > new Date(c.lastChargeDate).getTime() ? 'cancelled' : 'active';
@@ -237,13 +246,20 @@ async function loadStore(isInitialLoad) {
 
     const liveCustomersById = new Map(lastGoodStore.customers.map((c) => [c.id, c]));
 
+    // Sempre rechecamos o detalhe de qualquer código já confirmado como
+    // pagante de verdade em algum momento — sem isso, uma conta que cancela
+    // e volta pro Gratuito some da varredura da listagem pra sempre (ver
+    // server/knownCodes.js e a descoberta na conta 89106111).
+    const knownCodes = readKnownCodes();
+
     const data = await fetchFromExternalApi(EXTERNAL_API_URL, previousScores, previousMrrs, (row) => {
       const enriched = enrichCustomer(transformCustomer(row));
       liveCustomersById.set(enriched.id, enriched);
       store = { ...lastGoodStore, customers: Array.from(liveCustomersById.values()) };
-    });
+    }, knownCodes);
 
     const customers = (data.customers || []).map(transformCustomer).map(enrichCustomer);
+    writeKnownCodes([...knownCodes, ...customers.filter((c) => c.everPaid).map((c) => c.id)]);
 
     store = {
       customers,
