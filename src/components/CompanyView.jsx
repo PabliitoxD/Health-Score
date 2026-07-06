@@ -42,21 +42,21 @@ const ReasonDetailTable = ({ title, icon, rows }) => (
     {rows.length === 0 ? (
       <p className="text-xs text-slate-400 dark:text-slate-500 py-4 text-center">Nenhum cancelamento no período</p>
     ) : (
-      <div className="max-h-72 overflow-y-auto">
-        <table className="w-full text-left text-sm">
+      <div className="max-h-96 overflow-y-auto">
+        <table className="w-full table-fixed text-left text-sm">
           <thead className="sticky top-0 bg-white dark:bg-slate-900">
             <tr className="text-[10px] text-slate-400 dark:text-slate-500 uppercase tracking-wider">
-              <th className="pb-2 font-semibold">ID</th>
-              <th className="pb-2 font-semibold">Cliente</th>
+              <th className="pb-2 font-semibold w-24">ID</th>
+              <th className="pb-2 font-semibold w-1/4">Cliente</th>
               <th className="pb-2 font-semibold">Motivo</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
             {rows.map((row) => (
               <tr key={row.id}>
-                <td className="py-2 text-slate-500 dark:text-slate-400 whitespace-nowrap">{row.id}</td>
-                <td className="py-2 text-slate-600 dark:text-slate-400">{row.name}</td>
-                <td className="py-2 text-slate-600 dark:text-slate-400">{row.reason}</td>
+                <td className="py-2 pr-2 text-slate-500 dark:text-slate-400 break-words">{row.id}</td>
+                <td className="py-2 pr-2 text-slate-600 dark:text-slate-400 break-words">{row.name}</td>
+                <td className="py-2 text-slate-600 dark:text-slate-400 break-words">{row.reason}</td>
               </tr>
             ))}
           </tbody>
@@ -236,10 +236,9 @@ const CompanyView = () => {
   const renewalsBreakdown = computePlanBreakdown(retainedCustomers);
   const cancellationsBreakdown = computePlanBreakdown(cancellationsInPeriod);
   const nonRenewalsBreakdown = computePlanBreakdown(nonRenewalsInPeriod);
-  const cancellationsByReasonList = [...cancellationsInPeriod].sort((a, b) => {
-    const reasonCompare = (a.reason || '').localeCompare(b.reason || '');
-    return reasonCompare !== 0 ? reasonCompare : a.name.localeCompare(b.name);
-  });
+  const cancellationsByReasonList = [...cancellationsInPeriod].sort(
+    (a, b) => new Date(b.cancelDate || 0) - new Date(a.cancelDate || 0)
+  );
   const tpv = computeTpv(dateFilteredAll);
 
   // Renovações nos próximos 3 dias: clientes ativos com a próxima cobrança
@@ -549,11 +548,11 @@ const CompanyView = () => {
 
         <div className="mb-10">
           <SectionTitle>Cancelamento</SectionTitle>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
             <BreakdownTable title="Cancelamentos por Plano" icon={<XCircle size={16} />} keyLabel="Plano" data={cancellationsBreakdown} />
             <BreakdownTable title="Não Renovados por Plano" icon={<UserX size={16} />} keyLabel="Plano" data={nonRenewalsBreakdown} />
-            <ReasonDetailTable title="Cancelamentos por Motivo" icon={<Tag size={16} />} rows={cancellationsByReasonList} />
           </div>
+          <ReasonDetailTable title="Cancelamentos por Motivo" icon={<Tag size={16} />} rows={cancellationsByReasonList} />
         </div>
 
         <div>
