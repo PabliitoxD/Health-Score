@@ -133,12 +133,17 @@ function adaptAccountDetail(detail, previousScore, previousMrrSnapshot) {
     'id_fk_plan': null,
     'E-mail': producer.email,
     'Telefone': producer.phone,
+    'TPV Total Valor': tpv.total_value,
+    'TPV Total Transações': tpv.total_transactions,
     'TPV Pix Percentual': tpv.pix?.percent,
     'TPV Pix Total': tpv.pix?.total_value,
+    'TPV Pix Transações': tpv.pix?.transactions,
     'TPV Cartão Percentual': tpv.cartao?.percent,
     'TPV Cartão Total': tpv.cartao?.total_value,
+    'TPV Cartão Transações': tpv.cartao?.transactions,
     'TPV Boleto Percentual': tpv.boleto?.percent,
     'TPV Boleto Total': tpv.boleto?.total_value,
+    'TPV Boleto Transações': tpv.boleto?.transactions,
     // Usados pra classificar a conta em trial/ativa/cancelada/lead (ver
     // deriveAccountStatus em server.js).
     'Trial Plano': plan.trial_plan || 'no',

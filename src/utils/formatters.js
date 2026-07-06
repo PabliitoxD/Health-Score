@@ -10,6 +10,9 @@ export const formatCurrency = (value) =>
 export const formatPercent = (value, decimals = 1) =>
   `${value.toFixed(decimals)}%`;
 
+export const formatNumber = (value) =>
+  new Intl.NumberFormat('pt-BR').format(value);
+
 export const formatJoinDate = (dateStr) => {
   const date = new Date(dateStr + 'T00:00:00');
   return date.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });

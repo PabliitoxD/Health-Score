@@ -1,6 +1,6 @@
 import React from 'react';
-import { Users, AlertTriangle, MessageSquare, Zap, CreditCard, TrendingUp } from 'lucide-react';
-import { formatCurrency, formatJoinDate } from '../utils/formatters';
+import { Users, AlertTriangle, MessageSquare, Zap, CreditCard, TrendingUp, QrCode, Receipt } from 'lucide-react';
+import { formatCurrency, formatNumber, formatJoinDate } from '../utils/formatters';
 import { formatLastLogin, formatNextCharge } from '../utils/healthScore';
 import GlassCard from './ui/GlassCard';
 
@@ -38,6 +38,14 @@ const InfoTile = ({ label, value, valueClass = '' }) => (
   <div className="p-3 bg-slate-50 dark:bg-slate-800 rounded-xl">
     <p className="text-[10px] text-slate-400 dark:text-slate-500 uppercase font-bold mb-1">{label}</p>
     <p className={`text-sm font-bold text-slate-900 dark:text-white ${valueClass}`}>{value}</p>
+  </div>
+);
+
+const TpvMethodTile = ({ icon, label, transactions, total }) => (
+  <div className="p-3 bg-slate-50 dark:bg-slate-800 rounded-xl">
+    <p className="text-[10px] text-slate-400 dark:text-slate-500 uppercase font-bold mb-1 flex items-center gap-1">{icon} {label}</p>
+    <p className="text-sm font-bold text-slate-900 dark:text-white">{formatNumber(transactions)} <span className="font-normal text-slate-400 dark:text-slate-500">transações</span></p>
+    <p className="text-xs text-slate-500 dark:text-slate-400">{formatCurrency(total)}</p>
   </div>
 );
 
@@ -137,6 +145,23 @@ const CustomerDetails = ({ selectedCustomer }) => {
               <InfoTile label="MRR" value={formatCurrency(c.mrr)} />
               <InfoTile label="ARR" value={formatCurrency(c.mrr * 12)} />
               <InfoTile label="Meses de Assinatura" value={formatSubscriptionMonths(c.subscriptionMonths)} />
+            </div>
+          </div>
+
+          {/* TPV & Transações */}
+          <div className="pt-4 border-t border-slate-100 dark:border-slate-800">
+            <div className="flex items-center justify-between mb-4">
+              <h4 className="text-xs font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest">TPV & Transações</h4>
+              <span className="text-[10px] text-slate-400 dark:text-slate-500">Acumulado total</span>
+            </div>
+            <div className="grid grid-cols-2 gap-3 mb-3">
+              <InfoTile label="TPV Total" value={formatCurrency(c.tpv?.total || 0)} />
+              <InfoTile label="Qtd. Transações" value={formatNumber(c.tpv?.totalTransactions || 0)} />
+            </div>
+            <div className="grid grid-cols-3 gap-3">
+              <TpvMethodTile icon={<QrCode size={11} />} label="Pix" transactions={c.tpv?.pix.transactions || 0} total={c.tpv?.pix.total || 0} />
+              <TpvMethodTile icon={<CreditCard size={11} />} label="Cartão" transactions={c.tpv?.cartao.transactions || 0} total={c.tpv?.cartao.total || 0} />
+              <TpvMethodTile icon={<Receipt size={11} />} label="Boleto" transactions={c.tpv?.boleto.transactions || 0} total={c.tpv?.boleto.total || 0} />
             </div>
           </div>
 
