@@ -437,10 +437,10 @@ const CompanyView = () => {
       title: 'Renovações nos Próximos 3 Dias',
       formula: 'Clientes ativos com a próxima cobrança agendada para os próximos 3 dias a partir de hoje.',
       columns: [
-        { key: 'name', label: 'Cliente' }, { key: 'tier', label: 'Plano' },
+        { key: 'name', label: 'Cliente' }, { key: 'tier', label: 'Plano' }, { key: 'phone', label: 'Contato' },
         { key: 'nextCharge', label: 'Próxima Cobrança', align: 'right' }, { key: 'value', label: 'MRR', align: 'right' },
       ],
-      rows: upcomingRenewals.map((c) => ({ name: c.name, tier: c.tier, nextCharge: c.nextCharge, value: formatCurrency(c.mrr) })),
+      rows: upcomingRenewals.map((c) => ({ name: c.name, tier: c.tier, phone: c.phone || '—', nextCharge: c.nextCharge, value: formatCurrency(c.mrr) })),
       totalRow: { value: formatCurrency(upcomingRenewals.reduce((a, c) => a + c.mrr, 0)) },
       emptyText: 'Nenhuma renovação nos próximos 3 dias',
     },
