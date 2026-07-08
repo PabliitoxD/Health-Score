@@ -278,7 +278,7 @@ const CompanyView = () => {
       columns: [
         { key: 'name', label: 'Cliente' }, { key: 'tier', label: 'Plano' }, { key: 'value', label: 'MRR', align: 'right' },
       ],
-      rows: dateFilteredAll.map((c) => ({ name: c.name, tier: c.tier, value: formatCurrency(c.mrr) })),
+      rows: activeCustomers.map((c) => ({ name: c.name, tier: c.tier, value: formatCurrency(c.mrr) })),
       totalRow: { value: formatCurrency(totalMRR) },
     },
     arr: {

@@ -80,10 +80,10 @@ export const useCustomers = () => {
     [dateFilteredAll]
   );
 
-  // Gráficos do Dashboard: ativos + cancelados (indiferente do motivo), sem
-  // trial e sem "lead" (conta que nunca teve pagamento de verdade).
+  // Gráficos do Dashboard: só clientes ativos (plano pago, sem cancelamento
+  // efetivado) — mesma base usada pro MRR Total.
   const chartCustomers = useMemo(
-    () => dateFilteredAll.filter((c) => c.accountStatus === 'active' || c.accountStatus === 'cancelled'),
+    () => dateFilteredAll.filter((c) => c.accountStatus === 'active'),
     [dateFilteredAll]
   );
 
