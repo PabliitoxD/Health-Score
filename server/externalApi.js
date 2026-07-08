@@ -160,10 +160,16 @@ function adaptAccountDetail(detail, previousScore, previousMrrSnapshot) {
     // passado ou está pagando agora mesmo (achado cruzando a lista de 303
     // contas de referência fornecida pelo time — 2 delas tinham renewals
     // vazio apesar de já terem sido/serem pagantes).
+    // Number(plan.value) > 0 sozinho NÃO prova pagamento: durante o trial a
+    // conta já vem com o plano pago selecionado (e seu valor futuro) mesmo
+    // sem nenhuma cobrança ter acontecido ainda — por isso exigimos também
+    // trial_plan !== 'yes' nesse sinal (achado testando a API real em
+    // 2026-07-08: 1017 contas com trial_plan="yes" e renewals=[] vinham
+    // sendo contadas como "ativas" só por terem um plano pago associado).
     'Teve Pagamento':
       (plan.renewals || []).some((r) => r.status === 'paid') ||
       plan.trial_plan === 'finished' ||
-      Number(plan.value) > 0,
+      (Number(plan.value) > 0 && plan.trial_plan !== 'yes'),
   };
 }
 
@@ -210,12 +216,23 @@ function extractCancellation(detail, row) {
 // algum momento (ver server/knownCodes.js) — sempre incluídos no detalhe,
 // mesmo que a varredura da listagem não os encontre mais (conta cancelada
 // volta pro Gratuito e some da varredura por id_fk_plan/plan_name).
-export async function fetchFromExternalApi(baseUrl, previousScores = {}, previousMrrs = {}, onAccount = null, knownCodes = []) {
+//
+// skipCodes: códigos de clientes já classificados como "lead" (trial
+// travado, nunca pagou) recentemente o suficiente pra não precisar buscar o
+// detalhe de novo nesse ciclo (ver LEAD_RECHECK_INTERVAL_MS em server.js) —
+// o chamador reaproveita o objeto da sincronização anterior pra esses
+// códigos. Reduz em ~77% as chamadas de detalhe na maioria dos ciclos, sem
+// deixar de detectar conversão de lead pra pagante (só com menos frequência).
+export async function fetchFromExternalApi(baseUrl, previousScores = {}, previousMrrs = {}, onAccount = null, knownCodes = [], skipCodes = new Set()) {
   const throttleMs = Number(process.env.EXTERNAL_API_THROTTLE_MS) || 150;
 
   const scannedCodes = await fetchPaidAccountCodes(baseUrl, throttleMs);
-  const codes = Array.from(new Set([...scannedCodes, ...knownCodes]));
-  console.log(`[externalApi] Listagem concluída: ${scannedCodes.length} na varredura + ${knownCodes.length} já conhecidos = ${codes.length} clientes pra buscar o detalhe.`);
+  const allCodes = Array.from(new Set([...scannedCodes, ...knownCodes]));
+  const codes = allCodes.filter((code) => !skipCodes.has(code));
+  console.log(
+    `[externalApi] Listagem concluída: ${scannedCodes.length} na varredura + ${knownCodes.length} já conhecidos = ${allCodes.length} clientes; ` +
+    `${allCodes.length - codes.length} pulados (lead recheck espaçado), ${codes.length} vão ter o detalhe buscado.`
+  );
 
   const customers = [];
   const cancellations = [];

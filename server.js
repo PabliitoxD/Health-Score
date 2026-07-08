@@ -6,6 +6,7 @@ import { fetchFromExternalApi } from './server/externalApi.js';
 import { readCustomerSnapshot, writeCustomerSnapshot } from './server/customerSnapshot.js';
 import { readStoreCache, writeStoreCache } from './server/storeCache.js';
 import { readKnownCodes, writeKnownCodes } from './server/knownCodes.js';
+import { readLeadCheckState, writeLeadCheckState } from './server/leadCheckState.js';
 
 loadEnvFile();
 
@@ -18,6 +19,14 @@ app.use(express.json({ limit: '10mb' }));
 const EXTERNAL_API_URL = process.env.EXTERNAL_API_URL || null;
 // Intervalo entre sincronizações periódicas com a API real.
 const SYNC_INTERVAL_MINUTES = Number(process.env.SYNC_INTERVAL_MINUTES) || 60;
+
+// Clientes já classificados como "lead" (trial travado, nunca pagou de
+// verdade) só têm o detalhe buscado de novo a cada 12h, em vez de a cada
+// sincronização (hora em hora) — decisão tomada com o Pablo em 2026-07-08:
+// 2x/dia é suficiente pra detectar uma conversão de lead pra pagante sem
+// sobrecarregar a API externa com o detalhe de ~1000 contas que raramente
+// mudam de estado. Ver leadCheckState.js e o uso de skipCodes em loadStore.
+const LEAD_RECHECK_INTERVAL_MS = 12 * 60 * 60 * 1000;
 
 // In-memory store — reset quando o servidor reinicia
 let store = { customers: [], cancellations: [], nonRenewals: [], updatedAt: null };
@@ -124,6 +133,13 @@ const TRIAL_WINDOW_DAYS = 7;
 //    período contratado").
 //
 // Ativo: todo o resto (já foi pagante e não tem cancelamento efetivado).
+//
+// Validação de sanidade pós-sync (ver validateAccountStatusHeuristics
+// abaixo): "active" com trial_plan="yes" e nunca cobrado é exatamente o
+// padrão do bug encontrado em 2026-07-08, onde 1017 contas em trial travado
+// (a API nunca reverte trial_plan pra "no"/"finished" quando não convertem)
+// eram contadas como clientes ativos só por já terem um plano pago
+// selecionado (ver "Teve Pagamento" em server/externalApi.js).
 function deriveAccountStatus(c) {
   const daysSinceJoin = c.joinDate ? Math.floor((Date.now() - new Date(c.joinDate).getTime()) / (1000 * 60 * 60 * 24)) : null;
   const inTrialWindow = daysSinceJoin !== null && daysSinceJoin <= TRIAL_WINDOW_DAYS;
@@ -139,6 +155,35 @@ function deriveAccountStatus(c) {
     return Date.now() > new Date(c.lastChargeDate).getTime() ? 'cancelled' : 'active';
   }
   return 'active';
+}
+
+// Roda a cada sincronização, depois de todos os clientes já enriquecidos com
+// accountStatus. Não bloqueia nem corrige nada sozinho — só avisa no log se
+// os números fugirem do padrão esperado, pra pegar cedo uma eventual
+// repetição do bug de 2026-07-08 (ou uma mudança de comportamento da API
+// externa que quebre a mesma suposição de novo).
+function validateAccountStatusHeuristics(customers) {
+  const activeNeverCharged = customers.filter(
+    (c) => c.accountStatus === 'active' && c.trialPlan === 'yes' && !c.lastChargeDate
+  );
+  if (activeNeverCharged.length > 0) {
+    console.warn(
+      `[validate] ${activeNeverCharged.length} cliente(s) marcado(s) como "active" com trial_plan="yes" e sem nenhuma cobrança registrada — ` +
+      `possível regressão do bug de contagem de ativos de 2026-07-08 (ver "Teve Pagamento" em server/externalApi.js). ` +
+      `Exemplos: ${activeNeverCharged.slice(0, 5).map((c) => `${c.id} (${c.name})`).join(', ')}`
+    );
+  }
+
+  const leadWithRealCharge = customers.filter(
+    (c) => c.accountStatus === 'lead' && !!c.lastChargeDate
+  );
+  if (leadWithRealCharge.length > 0) {
+    console.warn(
+      `[validate] ${leadWithRealCharge.length} cliente(s) marcado(s) como "lead" mas com data de última cobrança preenchida — ` +
+      `podem estar sendo excluídos indevidamente da contagem de ativos. ` +
+      `Exemplos: ${leadWithRealCharge.slice(0, 5).map((c) => `${c.id} (${c.name})`).join(', ')}`
+    );
+  }
 }
 
 // ─── Cálculo do Health Score ──────────────────────────────────────────────────
@@ -246,6 +291,10 @@ async function loadStore(isInitialLoad) {
     const previousScores = Object.fromEntries(Object.entries(snapshot).map(([id, s]) => [id, s.score]));
     const previousMrrs = Object.fromEntries(Object.entries(snapshot).map(([id, s]) => [id, s.mrr]));
 
+    // Também serve de "estado anterior" pra reaproveitar leads pulados (ver
+    // skipCodes abaixo) — só é mutado pelo onAccount conforme o detalhe de
+    // cada conta É buscado de verdade, então quem for pulado neste ciclo
+    // continua apontando pro objeto da sincronização anterior sem mudança.
     const liveCustomersById = new Map(lastGoodStore.customers.map((c) => [c.id, c]));
 
     // Sempre rechecamos o detalhe de qualquer código já confirmado como
@@ -254,14 +303,44 @@ async function loadStore(isInitialLoad) {
     // server/knownCodes.js e a descoberta na conta 89106111).
     const knownCodes = readKnownCodes();
 
+    // Leads (trial travado, nunca pagou de verdade) checados há menos de
+    // LEAD_RECHECK_INTERVAL_MS não têm o detalhe buscado de novo agora —
+    // ver leadCheckState.js e a decisão tomada com o Pablo em 2026-07-08.
+    const leadCheckState = readLeadCheckState();
+    const skipCodes = new Set(
+      lastGoodStore.customers
+        .filter((c) => {
+          if (c.accountStatus !== 'lead') return false;
+          const lastChecked = leadCheckState[c.id];
+          return !!lastChecked && Date.now() - new Date(lastChecked).getTime() < LEAD_RECHECK_INTERVAL_MS;
+        })
+        .map((c) => c.id)
+    );
+
     const data = await fetchFromExternalApi(EXTERNAL_API_URL, previousScores, previousMrrs, (row) => {
       const enriched = enrichCustomer(transformCustomer(row));
       liveCustomersById.set(enriched.id, enriched);
       store = { ...lastGoodStore, customers: Array.from(liveCustomersById.values()) };
-    }, knownCodes);
+    }, knownCodes, skipCodes);
 
-    const customers = (data.customers || []).map(transformCustomer).map(enrichCustomer);
+    const freshCustomers = (data.customers || []).map(transformCustomer).map(enrichCustomer);
+    // Leads pulados entram na store de novo, sem alteração — só não tiveram
+    // o detalhe rebuscado nesse ciclo.
+    const reusedLeadCustomers = Array.from(skipCodes).map((code) => liveCustomersById.get(code)).filter(Boolean);
+    const customers = [...freshCustomers, ...reusedLeadCustomers];
+    validateAccountStatusHeuristics(customers);
     writeKnownCodes([...knownCodes, ...customers.filter((c) => c.everPaid).map((c) => c.id)]);
+
+    // "Checado agora" só pra quem teve detalhe buscado de verdade; quem foi
+    // pulado mantém o timestamp antigo (ainda dentro da janela). Quem deixou
+    // de ser lead (converteu ou cancelou de vez) sai do controle.
+    const now = new Date().toISOString();
+    const nextLeadCheckState = { ...leadCheckState };
+    freshCustomers.forEach((c) => {
+      if (c.accountStatus === 'lead') nextLeadCheckState[c.id] = now;
+      else delete nextLeadCheckState[c.id];
+    });
+    writeLeadCheckState(nextLeadCheckState);
 
     store = {
       customers,
