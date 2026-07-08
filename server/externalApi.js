@@ -59,23 +59,44 @@ async function apiGet(baseUrl, path) {
   return json.data;
 }
 
-// Pagina GET /dashboard/accounts inteiro, retornando só os códigos das
-// contas com plano pago/trial de verdade — filtra na listagem pra não
-// precisar buscar o detalhe de todas as ~65 mil contas:
+// Pagina GET /dashboard/accounts, retornando só os códigos das contas com
+// plano pago/trial de verdade — filtra na listagem pra não precisar buscar
+// o detalhe de todas as ~65 mil contas:
 // - id_fk_plan "0" = sem plano (gratuito) — fora
 // - plan_name "Parceiro" = plano especial, não é cliente — fora
-async function fetchPaidAccountCodes(baseUrl, throttleMs) {
+//
+// A listagem vem ordenada por registration_date DECRESCENTE (confirmado
+// testando a API real em 2026-07-08: página 1 trazia cadastros de hoje,
+// página 1000 trazia nov/2024, página 2639 [última] trazia jun/2024). Como
+// a esmagadora maioria das contas com plano pago já entra com o plano
+// selecionado desde o cadastro (trial obrigatório escolhe um plano de
+// cara), dá pra parar de paginar assim que a página trouxer só cadastros
+// mais antigos que `sinceDate` — tudo antes disso já foi visto numa
+// sincronização anterior. Decisão tomada com o Pablo em 2026-07-08: sem
+// varredura completa periódica de segurança, só a incremental (risco
+// aceito: uma conta muito antiga que vire paga sem nenhum cadastro novo
+// não seria pega até rodarmos uma varredura completa do zero de novo).
+async function fetchPaidAccountCodes(baseUrl, throttleMs, sinceDate = null) {
   const codes = [];
   let page = 1;
   let totalPages = null;
+  let stoppedEarly = false;
 
   do {
     const data = await apiGet(baseUrl, `/dashboard/accounts?page=${page}&expr=&status=`);
     totalPages = data.pages;
 
-    data.items
-      .filter((item) => item.id_fk_plan && item.id_fk_plan !== '0' && item.plan_name !== 'Parceiro')
-      .forEach((item) => codes.push(item.code));
+    for (const item of data.items) {
+      if (sinceDate && item.registration_date && new Date(item.registration_date.replace(' ', 'T')) < sinceDate) {
+        stoppedEarly = true;
+        break;
+      }
+      if (item.id_fk_plan && item.id_fk_plan !== '0' && item.plan_name !== 'Parceiro') {
+        codes.push(item.code);
+      }
+    }
+
+    if (stoppedEarly) break;
 
     if (page % 100 === 0 || page === totalPages) {
       console.log(`[externalApi] Listagem: página ${page}/${totalPages} — ${codes.length} clientes encontrados até agora`);
@@ -84,6 +105,12 @@ async function fetchPaidAccountCodes(baseUrl, throttleMs) {
     page += 1;
     if (page <= totalPages) await sleep(throttleMs);
   } while (page <= totalPages);
+
+  console.log(
+    sinceDate
+      ? `[externalApi] Varredura incremental: parou na página ${page}/${totalPages} (cadastros mais novos que ${sinceDate.toISOString()}) — ${codes.length} clientes com plano pago encontrados.`
+      : `[externalApi] Varredura completa: ${page}/${totalPages} páginas — ${codes.length} clientes com plano pago encontrados.`
+  );
 
   return codes;
 }
@@ -182,7 +209,16 @@ function adaptAccountDetail(detail, previousScore, previousMrrSnapshot) {
 // "Gratuito" SEM marcar isso em cancellation.client_request.cancelled nem em
 // payment_failure — os dois ficam vazios. Sem checar "voltou pro Gratuito
 // depois de já ter pago", essas contas nunca apareceriam como canceladas.
-function extractCancellation(detail, row) {
+//
+// Nesse caso "silencioso" não existe nenhuma data de cancelamento na API —
+// client_request.date fica null. Sem uma data, o cancelamento nunca seria
+// contado em nenhum filtro de período (Hoje/Semana/Mês), só na visão "Tudo".
+// Decisão tomada com o Pablo em 2026-07-08: usar a data em que a
+// sincronização detectou a mudança pela primeira vez (detectedAt, vindo de
+// server/cancellationDates.js) como data efetiva do cancelamento nesses
+// casos — fica estável entre sincronizações enquanto a conta continuar
+// cancelada (não avança a cada sync).
+function extractCancellation(detail, row, detectedAt) {
   const cancelamento = detail.cancellation || {};
   const paymentFailure = cancelamento.payment_failure || {};
   const clientRequest = cancelamento.client_request || {};
@@ -191,8 +227,17 @@ function extractCancellation(detail, row) {
   const hasPaymentFailure = (paymentFailure.pending_invoices || 0) > 0 || !!paymentFailure.last_error_date;
   const revertedToFree = !!row['Teve Pagamento'] && (row['Plano Atual'] === 'Gratuito' || Number(row['Valor Plano Atual']) === 0);
 
+  // applyDateFilter (frontend) monta a data como `cancelDate + 'T00:00:00'`
+  // — só funciona com data pura (YYYY-MM-DD), igual ao padrão já usado pro
+  // joinDate (ver transformCustomer em server.js). client_request.date vem
+  // com hora ("YYYY-MM-DD HH:MM:SS") e detectedAt vem em ISO completo; sem
+  // truncar os dois pra só a data, a concatenação gera Invalid Date e o
+  // cancelamento nunca aparece em nenhum filtro de período (só em "Tudo").
+  const rawCancelDate = clientRequest.date || detectedAt || null;
+  const cancelDate = rawCancelDate ? normalizeDate(rawCancelDate).split('T')[0] : null;
+
   const cancellation = !hasPaymentFailure && (clientRequest.cancelled || revertedToFree)
-    ? { ...base, cancelDate: clientRequest.date || null, reason: clientRequest.reason || 'Cancelamento efetivado' }
+    ? { ...base, cancelDate, reason: clientRequest.reason || 'Cancelamento efetivado' }
     : null;
 
   const nonRenewal = hasPaymentFailure
@@ -223,11 +268,31 @@ function extractCancellation(detail, row) {
 // o chamador reaproveita o objeto da sincronização anterior pra esses
 // códigos. Reduz em ~77% as chamadas de detalhe na maioria dos ciclos, sem
 // deixar de detectar conversão de lead pra pagante (só com menos frequência).
-export async function fetchFromExternalApi(baseUrl, previousScores = {}, previousMrrs = {}, onAccount = null, knownCodes = [], skipCodes = new Set()) {
+//
+// previousCancelDetectedAt: { [codigo]: dataISO } — data em que detectamos
+// pela primeira vez o cancelamento "silencioso" de cada conta (ver
+// server/cancellationDates.js e extractCancellation acima). Se o código
+// ainda não tiver uma data registrada, usamos o horário desta própria
+// sincronização (syncTimestamp) como o primeiro detected-at.
+//
+// sinceDate: corta a varredura da listagem só nas páginas com cadastros
+// mais novos que essa data (ver fetchPaidAccountCodes acima e
+// LISTING_SCAN_SAFETY_BUFFER_MS em server.js) — null faz a varredura
+// completa (usado no primeiro carregamento, sem estado anterior).
+//
+// leadCodes: códigos de TODOS os clientes já classificados como "lead"
+// (trial travado, nunca pagou), independente de estarem no meio do
+// intervalo de recheck (LEAD_RECHECK_INTERVAL_MS). Sem isso, a varredura
+// incremental por sinceDate faria um lead antigo (cadastro de muito tempo
+// atrás) desaparecer da base assim que passasse da janela de skip — ele
+// não está em knownCodes (nunca pagou) nem apareceria de novo na varredura
+// (cadastro antigo demais pro corte por data).
+export async function fetchFromExternalApi(baseUrl, previousScores = {}, previousMrrs = {}, onAccount = null, knownCodes = [], skipCodes = new Set(), previousCancelDetectedAt = {}, sinceDate = null, leadCodes = []) {
   const throttleMs = Number(process.env.EXTERNAL_API_THROTTLE_MS) || 150;
+  const syncTimestamp = new Date().toISOString();
 
-  const scannedCodes = await fetchPaidAccountCodes(baseUrl, throttleMs);
-  const allCodes = Array.from(new Set([...scannedCodes, ...knownCodes]));
+  const scannedCodes = await fetchPaidAccountCodes(baseUrl, throttleMs, sinceDate);
+  const allCodes = Array.from(new Set([...scannedCodes, ...knownCodes, ...leadCodes]));
   const codes = allCodes.filter((code) => !skipCodes.has(code));
   console.log(
     `[externalApi] Listagem concluída: ${scannedCodes.length} na varredura + ${knownCodes.length} já conhecidos = ${allCodes.length} clientes; ` +
@@ -244,7 +309,8 @@ export async function fetchFromExternalApi(baseUrl, previousScores = {}, previou
     const row = adaptAccountDetail(detail, previousScores[code] ?? null, previousMrrs[code] ?? null);
     customers.push(row);
 
-    const { cancellation, nonRenewal } = extractCancellation(detail, row);
+    const detectedAt = previousCancelDetectedAt[code] || syncTimestamp;
+    const { cancellation, nonRenewal } = extractCancellation(detail, row, detectedAt);
     if (cancellation) cancellations.push(cancellation);
     if (nonRenewal) nonRenewals.push(nonRenewal);
 

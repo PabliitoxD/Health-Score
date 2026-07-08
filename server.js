@@ -7,6 +7,8 @@ import { readCustomerSnapshot, writeCustomerSnapshot } from './server/customerSn
 import { readStoreCache, writeStoreCache } from './server/storeCache.js';
 import { readKnownCodes, writeKnownCodes } from './server/knownCodes.js';
 import { readLeadCheckState, writeLeadCheckState } from './server/leadCheckState.js';
+import { readCancellationDetectedAt, writeCancellationDetectedAt } from './server/cancellationDates.js';
+import { readListingScanState, writeListingScanState } from './server/listingScanState.js';
 
 loadEnvFile();
 
@@ -27,6 +29,14 @@ const SYNC_INTERVAL_MINUTES = Number(process.env.SYNC_INTERVAL_MINUTES) || 60;
 // sobrecarregar a API externa com o detalhe de ~1000 contas que raramente
 // mudam de estado. Ver leadCheckState.js e o uso de skipCodes em loadStore.
 const LEAD_RECHECK_INTERVAL_MS = 12 * 60 * 60 * 1000;
+
+// Margem de segurança subtraída da última varredura completa/incremental
+// antes de usá-la como corte pra próxima varredura (ver sinceDate em
+// loadStore e fetchPaidAccountCodes em server/externalApi.js) — cobre
+// atraso na sincronização e qualquer diferença de relógio com a API
+// externa. Bem maior que o intervalo de sync (1h) de propósito, pra nunca
+// arriscar perder um cadastro novo por causa de alguns minutos de folga.
+const LISTING_SCAN_SAFETY_BUFFER_MS = 3 * 60 * 60 * 1000;
 
 // In-memory store — reset quando o servidor reinicia
 let store = { customers: [], cancellations: [], nonRenewals: [], updatedAt: null };
@@ -317,11 +327,34 @@ async function loadStore(isInitialLoad) {
         .map((c) => c.id)
     );
 
+    // Data em que detectamos pela primeira vez cada cancelamento "silencioso"
+    // (sem client_request.date) — ver cancellationDates.js e o uso em
+    // extractCancellation (server/externalApi.js). Fica estável entre
+    // sincronizações em vez de avançar a cada hora que a conta continua
+    // cancelada.
+    const cancelDetectedAt = readCancellationDetectedAt();
+
+    // Varredura incremental: só escaneia páginas com cadastros mais novos
+    // que a última varredura (menos a margem de segurança) — ver
+    // fetchPaidAccountCodes em server/externalApi.js. Sem estado anterior
+    // (primeiro carregamento), sinceDate fica null e faz a varredura
+    // completa uma única vez.
+    const { lastScanAt } = readListingScanState();
+    const sinceDate = lastScanAt ? new Date(new Date(lastScanAt).getTime() - LISTING_SCAN_SAFETY_BUFFER_MS) : null;
+    const thisScanStartedAt = new Date().toISOString();
+
+    // Todo lead já conhecido precisa continuar sendo rechecado
+    // periodicamente mesmo com a varredura incremental — sem isso, um lead
+    // de cadastro antigo sumiria da base assim que passasse da janela de
+    // skip (ver leadCodes em fetchFromExternalApi).
+    const leadCodes = lastGoodStore.customers.filter((c) => c.accountStatus === 'lead').map((c) => c.id);
+
     const data = await fetchFromExternalApi(EXTERNAL_API_URL, previousScores, previousMrrs, (row) => {
       const enriched = enrichCustomer(transformCustomer(row));
       liveCustomersById.set(enriched.id, enriched);
       store = { ...lastGoodStore, customers: Array.from(liveCustomersById.values()) };
-    }, knownCodes, skipCodes);
+    }, knownCodes, skipCodes, cancelDetectedAt, sinceDate, leadCodes);
+    writeListingScanState({ lastScanAt: thisScanStartedAt });
 
     const freshCustomers = (data.customers || []).map(transformCustomer).map(enrichCustomer);
     // Leads pulados entram na store de novo, sem alteração — só não tiveram
@@ -341,6 +374,15 @@ async function loadStore(isInitialLoad) {
       else delete nextLeadCheckState[c.id];
     });
     writeLeadCheckState(nextLeadCheckState);
+
+    // Reconstrói do zero a partir dos cancelamentos atuais — quem reativou
+    // e não está mais cancelado sai do controle sozinho (se cancelar nesse
+    // código de novo no futuro, é tratado como uma detecção nova).
+    const nextCancelDetectedAt = {};
+    (data.cancellations || []).forEach((c) => {
+      if (c.cancelDate) nextCancelDetectedAt[c.id] = c.cancelDate;
+    });
+    writeCancellationDetectedAt(nextCancelDetectedAt);
 
     store = {
       customers,
