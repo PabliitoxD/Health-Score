@@ -43,3 +43,29 @@ export const applyDateFilter = (items, dateFilter, customDateRange, dateField = 
   }
   return items;
 };
+
+// Quem já é cliente "até o fim do período" (sem exigir que tenha entrado
+// DENTRO da janela) — usado pra saber quem estava ativo naquele período,
+// não só quem é novo nele. Pra um cliente que segue ativo hoje (sem gap de
+// cancelamento no meio), joinDate <= fim do período já garante que ele
+// esteve ativo em algum momento dentro da janela, então não precisa checar
+// o início: um cliente antigo continua "ativo em Julho" mesmo tendo entrado
+// em Janeiro. Decisão tomada com o Pablo em 2026-07-08.
+export const applyAsOfFilter = (items, dateFilter, customDateRange, dateField = 'joinDate') => {
+  if (dateFilter === 'all') return items;
+
+  let periodEnd;
+  if (dateFilter === 'custom') {
+    periodEnd = customDateRange.to ? new Date(customDateRange.to + 'T23:59:59') : null;
+  } else {
+    periodEnd = new Date();
+    periodEnd.setHours(23, 59, 59, 999);
+  }
+  if (!periodEnd) return items;
+
+  return items.filter((it) => {
+    if (!it[dateField]) return false;
+    const d = new Date(it[dateField] + 'T00:00:00');
+    return d <= periodEnd;
+  });
+};

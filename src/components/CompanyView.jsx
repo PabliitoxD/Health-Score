@@ -10,7 +10,7 @@ import { getResponses } from '../utils/surveyStorage';
 import { SURVEY_META } from '../utils/surveyEligibility';
 import { computeNps, computeCsat } from '../utils/surveyKpis';
 import { computeRevenueRetention, computeLogoChurn, computePlanBreakdown, computeTpv } from '../utils/kpis';
-import { applyDateFilter } from '../utils/dateFilter';
+import { applyDateFilter, applyAsOfFilter } from '../utils/dateFilter';
 import { formatCurrency, formatPercent } from '../utils/formatters';
 import GlassCard from './ui/GlassCard';
 import FilterBar from './FilterBar';
@@ -146,19 +146,31 @@ const CompanyView = () => {
     load();
   }, []);
 
-  // Todos os clientes (novos + existentes) filtrados por joinDate — mesma base
-  // que o Dashboard usa pra MRR Total/ARPU/contagem.
-  const dateFilteredAll = useMemo(
+  // Coorte de cadastro: só quem entrou DENTRO do período (não "até o fim
+  // dele") — usada exclusivamente pra "Clientes Cadastrados" (newRegistrations
+  // abaixo), que é uma contagem de NOVOS cadastros no período, diferente de
+  // "quem está ativo nesse período" (ver dateFilteredAll).
+  const newInPeriod = useMemo(
     () => applyDateFilter(customers, dateFilter, customDateRange, 'joinDate'),
     [customers, dateFilter, customDateRange]
   );
 
-  // Cadastro (headcount): primeira "assinatura" dentro de dateFilteredAll,
-  // sem filtrar por accountStatus — trial e lead contam aqui, como qualquer
+  // "Ativo até o fim do período" (applyAsOfFilter), não "entrou dentro do
+  // período" — um cliente antigo continua contando em "Este Mês" mesmo tendo
+  // assinado há mais tempo. Base pra clientes ativos, TPV e qualquer outra
+  // métrica que representa "quem é cliente agora", não coorte de novos.
+  // Decisão tomada com o Pablo em 2026-07-08.
+  const dateFilteredAll = useMemo(
+    () => applyAsOfFilter(customers, dateFilter, customDateRange, 'joinDate'),
+    [customers, dateFilter, customDateRange]
+  );
+
+  // Cadastro (headcount): primeira "assinatura" dentro do período — sem
+  // filtrar por accountStatus, trial e lead contam aqui, como qualquer
   // outro cadastro (só não são "clientes ativos").
   const newRegistrations = useMemo(
-    () => dateFilteredAll.filter((c) => c.previousMrr === null || c.previousMrr === undefined),
-    [dateFilteredAll]
+    () => newInPeriod.filter((c) => c.previousMrr === null || c.previousMrr === undefined),
+    [newInPeriod]
   );
 
   // Só clientes realmente ativos (já pagantes, sem cancelamento efetivado) —

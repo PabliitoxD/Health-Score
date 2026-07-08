@@ -33,7 +33,7 @@ const CustomerList = ({
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
         <input
           type="text"
-          placeholder="Pesquisar cliente..."
+          placeholder="Pesquisar cliente ou ID..."
           className="w-full pl-10 pr-4 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-500/20 text-sm text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500"
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
@@ -73,7 +73,9 @@ const CustomerList = ({
             >
               <td className="px-6 py-4">
                 <p className="font-semibold text-slate-900 dark:text-white text-sm">{customer.name}</p>
-                <p className="text-slate-400 dark:text-slate-500 text-xs">{STATUS_LABELS[customer.status] ?? customer.status}</p>
+                <p className="text-slate-400 dark:text-slate-500 text-xs">
+                  Cód. {customer.id} · {STATUS_LABELS[customer.status] ?? customer.status}
+                </p>
               </td>
               <td className="px-6 py-4">
                 <span className={`text-xs px-2 py-1 rounded-full font-medium ${ACCOUNT_STATUS_LABELS[customer.accountStatus]?.cls ?? 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400'}`}>

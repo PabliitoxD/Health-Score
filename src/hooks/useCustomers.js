@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { getCustomers, getStats, getCancellations } from '../services/api';
 import { computeRevenueRetention, computeLogoChurn } from '../utils/kpis';
-import { applyDateFilter } from '../utils/dateFilter';
+import { applyDateFilter, applyAsOfFilter } from '../utils/dateFilter';
 
 // customers aqui já deve vir filtrado pra accountStatus === 'active' — trial
 // é contagem à parte (trialCount) e cancelado não entra nas métricas de MRR/saúde.
@@ -63,8 +63,13 @@ export const useCustomers = () => {
     loadData();
   }, []);
 
+  // "Ativo até o fim do período" (applyAsOfFilter), não "entrou dentro do
+  // período" — um cliente antigo continua contando em "Este Mês" mesmo tendo
+  // assinado há mais tempo. Decisão tomada com o Pablo em 2026-07-08: o
+  // filtro de período é um retrato de quem estava ativo naquele momento, não
+  // um corte de coorte de novos clientes.
   const dateFilteredAll = useMemo(
-    () => applyDateFilter(allCustomers, dateFilter, customDateRange, 'joinDate'),
+    () => applyAsOfFilter(allCustomers, dateFilter, customDateRange, 'joinDate'),
     [allCustomers, dateFilter, customDateRange]
   );
 
@@ -108,7 +113,8 @@ export const useCustomers = () => {
   const customers = useMemo(
     () =>
       dateFilteredAll.filter((c) => {
-        const matchesSearch = c.name.toLowerCase().includes(searchTerm.toLowerCase());
+        const term = searchTerm.toLowerCase();
+        const matchesSearch = c.name.toLowerCase().includes(term) || (c.id || '').toLowerCase().includes(term);
         const matchesStatus = filterStatus === 'All' || c.status === filterStatus;
         return c.accountStatus !== 'lead' && matchesSearch && matchesStatus;
       }),
