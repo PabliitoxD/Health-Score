@@ -9,6 +9,12 @@ import { readKnownCodes, writeKnownCodes } from './server/knownCodes.js';
 import { readLeadCheckState, writeLeadCheckState } from './server/leadCheckState.js';
 import { readCancellationDetectedAt, writeCancellationDetectedAt } from './server/cancellationDates.js';
 import { readListingScanState, writeListingScanState } from './server/listingScanState.js';
+import {
+  CANCELLATION_CATEGORIES,
+  isValidCategory,
+  readCancellationCategories,
+  writeCancellationCategories,
+} from './server/cancellationCategories.js';
 
 loadEnvFile();
 
@@ -40,6 +46,11 @@ const LISTING_SCAN_SAFETY_BUFFER_MS = 3 * 60 * 60 * 1000;
 
 // In-memory store — reset quando o servidor reinicia
 let store = { customers: [], cancellations: [], nonRenewals: [], updatedAt: null };
+
+// Categorização manual de motivo de cancelamento (por conta) — persistida em
+// disco (ver server/cancellationCategories.js), sobrevive a reinícios e não é
+// tocada pela sincronização periódica com a API externa.
+let cancellationCategories = readCancellationCategories();
 
 // In-memory store de pesquisas/respostas — mesma limitação (reset a cada restart),
 // mas centralizado no servidor em vez de localStorage por navegador. Sem seed
@@ -417,6 +428,67 @@ app.get('/api/cancellations', (_req, res) => {
 
 app.get('/api/non-renewals', (_req, res) => {
   res.json({ nonRenewals: store.nonRenewals, updatedAt: store.updatedAt });
+});
+
+app.get('/api/cancellation-categories/options', (_req, res) => {
+  res.json({ categories: CANCELLATION_CATEGORIES });
+});
+
+// Relatório de cancelamentos: consolida cancelamentos voluntários (incluindo
+// os "silenciosos", ver deriveAccountStatus) e não renovações por falha de
+// pagamento numa lista única, já com a categoria de motivo aplicada — a
+// categoria manual (cancellationCategories) tem prioridade; sem categoria
+// manual, falha de pagamento assume 'falha_pagamento' automaticamente e o
+// resto cai em 'nao_informado', aguardando classificação do CS.
+app.get('/api/cancellations-report', (_req, res) => {
+  const cancelItems = store.cancellations.map((c) => ({
+    id: c.id,
+    name: c.name,
+    tier: c.tier,
+    mrr: Number(c.mrr) || 0,
+    type: 'cancellation',
+    eventDate: c.cancelDate,
+    rawReason: c.reason || null,
+  }));
+  const nonRenewalItems = store.nonRenewals.map((c) => ({
+    id: c.id,
+    name: c.name,
+    tier: c.tier,
+    mrr: Number(c.mrr) || 0,
+    type: 'non_renewal',
+    eventDate: c.cycleEndDate,
+    rawReason: c.reason || null,
+  }));
+
+  const items = [...cancelItems, ...nonRenewalItems].map((item) => {
+    const override = cancellationCategories[item.id];
+    const category = override?.category || (item.type === 'non_renewal' ? 'falha_pagamento' : 'nao_informado');
+    return {
+      ...item,
+      category,
+      categoryNote: override?.note || '',
+      categoryUpdatedAt: override?.updatedAt || null,
+    };
+  });
+
+  res.json({ items, updatedAt: store.updatedAt });
+});
+
+app.put('/api/cancellation-categories/:id', (req, res) => {
+  const { id } = req.params;
+  const { category, note } = req.body || {};
+
+  if (!isValidCategory(category)) {
+    return res.status(400).json({ error: `Categoria inválida: ${category}` });
+  }
+
+  cancellationCategories = {
+    ...cancellationCategories,
+    [id]: { category, note: note || '', updatedAt: new Date().toISOString() },
+  };
+  writeCancellationCategories(cancellationCategories);
+
+  res.json({ ok: true, id, ...cancellationCategories[id] });
 });
 
 app.get('/api/stats', (_req, res) => {
