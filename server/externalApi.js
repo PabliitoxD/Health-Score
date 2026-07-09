@@ -210,14 +210,26 @@ function adaptAccountDetail(detail, previousScore, previousMrrSnapshot) {
 // payment_failure — os dois ficam vazios. Sem checar "voltou pro Gratuito
 // depois de já ter pago", essas contas nunca apareceriam como canceladas.
 //
-// Nesse caso "silencioso" não existe nenhuma data de cancelamento na API —
-// client_request.date fica null. Sem uma data, o cancelamento nunca seria
-// contado em nenhum filtro de período (Hoje/Semana/Mês), só na visão "Tudo".
-// Decisão tomada com o Pablo em 2026-07-08: usar a data em que a
-// sincronização detectou a mudança pela primeira vez (detectedAt, vindo de
-// server/cancellationDates.js) como data efetiva do cancelamento nesses
-// casos — fica estável entre sincronizações enquanto a conta continuar
-// cancelada (não avança a cada sync).
+// Nesse caso "silencioso" não existe nenhuma data de cancelamento explícita
+// na API — client_request.date fica null. Sem uma data, o cancelamento
+// nunca seria contado em nenhum filtro de período (Hoje/Semana/Mês), só na
+// visão "Tudo". Prioridade da data efetiva:
+// 1. client_request.date — quando o próprio cliente solicitou, a API já dá
+//    a data certa.
+// 2. Data da última cobrança real (row['Data Última Cobrança'], mesmo campo
+//    usado como lastChargeDate em transformCustomer) — pra quem voltou pro
+//    Gratuito sozinho, é a melhor aproximação de "quando parou de ser
+//    pagante": vem da própria API, então é estável e não depende do nosso
+//    cache. Corrigido em 2026-07-09 depois de notar que TODAS as contas
+//    canceladas silenciosamente apareciam com a data de HOJE no relatório,
+//    mesmo clientes cuja última cobrança foi meses atrás — o fallback
+//    anterior (detectedAt, "quando NÓS notamos") empurrava a data pra frente
+//    toda vez que o cache de detecção era perdido (ex: reset de deploy, ver
+//    server/cancellationDates.js), mascarando a data real do cancelamento.
+// 3. detectedAt (server/cancellationDates.js) — só sobra pra quem não tem
+//    NENHUM histórico de cobrança (conta muito antiga, ver comentário sobre
+//    'Teve Pagamento' em adaptAccountDetail acima) — decisão original
+//    tomada com o Pablo em 2026-07-08.
 function extractCancellation(detail, row, detectedAt) {
   const cancelamento = detail.cancellation || {};
   const paymentFailure = cancelamento.payment_failure || {};
@@ -233,7 +245,7 @@ function extractCancellation(detail, row, detectedAt) {
   // com hora ("YYYY-MM-DD HH:MM:SS") e detectedAt vem em ISO completo; sem
   // truncar os dois pra só a data, a concatenação gera Invalid Date e o
   // cancelamento nunca aparece em nenhum filtro de período (só em "Tudo").
-  const rawCancelDate = clientRequest.date || detectedAt || null;
+  const rawCancelDate = clientRequest.date || row['Data Última Cobrança'] || detectedAt || null;
   const cancelDate = rawCancelDate ? normalizeDate(rawCancelDate).split('T')[0] : null;
 
   const cancellation = !hasPaymentFailure && (clientRequest.cancelled || revertedToFree)
