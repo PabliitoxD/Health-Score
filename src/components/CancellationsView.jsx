@@ -1,9 +1,9 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { FileDown, Search, XCircle, UserX, DollarSign, Tag } from 'lucide-react';
+import { FileDown, Search, XCircle, UserX, DollarSign, Tag, ChevronLeft, ChevronRight } from 'lucide-react';
 import { getCancellationReport, getCancellationCategoryOptions, updateCancellationCategory } from '../services/api';
 import { applyDateFilter } from '../utils/dateFilter';
 import { computeBreakdown } from '../utils/kpis';
-import { formatCurrency } from '../utils/formatters';
+import { formatCurrency, formatDateOnly } from '../utils/formatters';
 import { exportCancellationsToXlsx } from '../utils/exportXlsx';
 import GlassCard from './ui/GlassCard';
 import FilterBar from './FilterBar';
@@ -42,7 +42,7 @@ const CancellationRow = ({ item, categories, onCategoryChange, onNoteSave }) => 
           {TYPE_LABELS[item.type] || item.type}
         </span>
       </td>
-      <td className="px-4 py-3 text-sm text-slate-600 dark:text-slate-400 whitespace-nowrap">{item.eventDate || '—'}</td>
+      <td className="px-4 py-3 text-sm text-slate-600 dark:text-slate-400 whitespace-nowrap">{formatDateOnly(item.eventDate)}</td>
       <td className="px-4 py-3 text-sm font-medium text-slate-900 dark:text-white text-right whitespace-nowrap">{formatCurrency(item.mrr)}</td>
       <td className="px-4 py-3 text-sm text-slate-500 dark:text-slate-400 max-w-[200px] truncate" title={item.rawReason || ''}>
         {item.rawReason || '—'}
@@ -72,6 +72,44 @@ const CancellationRow = ({ item, categories, onCategoryChange, onNoteSave }) => 
   );
 };
 
+const PAGE_SIZE = 20;
+
+const PaginationControls = ({ page, totalPages, total, pageSize, onPageChange }) => {
+  if (totalPages <= 1) return null;
+  const start = (page - 1) * pageSize + 1;
+  const end = Math.min(page * pageSize, total);
+
+  return (
+    <div className="flex items-center justify-between px-4 py-3 border-t border-slate-100 dark:border-slate-800">
+      <p className="text-xs text-slate-500 dark:text-slate-400">
+        Mostrando <span className="font-semibold text-slate-700 dark:text-slate-300">{start}–{end}</span> de{' '}
+        <span className="font-semibold text-slate-700 dark:text-slate-300">{total}</span>
+      </p>
+      <div className="flex items-center gap-2">
+        <button
+          onClick={() => onPageChange(page - 1)}
+          disabled={page <= 1}
+          className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 text-xs font-medium text-slate-600 dark:text-slate-400 disabled:opacity-40 disabled:cursor-not-allowed hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"
+        >
+          <ChevronLeft size={14} />
+          Anterior
+        </button>
+        <span className="text-xs font-medium text-slate-700 dark:text-slate-300 px-1">
+          Página {page} de {totalPages}
+        </span>
+        <button
+          onClick={() => onPageChange(page + 1)}
+          disabled={page >= totalPages}
+          className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 text-xs font-medium text-slate-600 dark:text-slate-400 disabled:opacity-40 disabled:cursor-not-allowed hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"
+        >
+          Próxima
+          <ChevronRight size={14} />
+        </button>
+      </div>
+    </div>
+  );
+};
+
 const CancellationsView = () => {
   const [items, setItems] = useState([]);
   const [categories, setCategories] = useState([]);
@@ -80,6 +118,7 @@ const CancellationsView = () => {
   const [categoryFilter, setCategoryFilter] = useState('all');
   const [dateFilter, setDateFilter] = useState('all');
   const [customDateRange, setCustomDateRange] = useState({ from: '', to: '' });
+  const [page, setPage] = useState(1);
 
   useEffect(() => {
     const load = async () => {
@@ -120,9 +159,29 @@ const CancellationsView = () => {
     });
   }, [itemsInPeriod, categoryFilter, searchTerm]);
 
-  const sortedItems = useMemo(
-    () => [...filteredItems].sort((a, b) => new Date(b.eventDate || 0) - new Date(a.eventDate || 0)),
-    [filteredItems]
+  // Datas vêm em dois formatos ("2026-07-08" pra cancelamento, "2026-07-08
+  // 08:00:05" pra não renovação) — normaliza o separador pra "T" antes de
+  // comparar, senão o Safari não parseia o formato com espaço. Sem data
+  // (0) vai sempre pro final da lista, do mais recente pro mais antigo.
+  const sortedItems = useMemo(() => {
+    const parseEventDate = (dateStr) => {
+      if (!dateStr) return 0;
+      const iso = dateStr.includes(' ') ? dateStr.replace(' ', 'T') : dateStr;
+      const t = new Date(iso).getTime();
+      return Number.isNaN(t) ? 0 : t;
+    };
+    return [...filteredItems].sort((a, b) => parseEventDate(b.eventDate) - parseEventDate(a.eventDate));
+  }, [filteredItems]);
+
+  // Sempre volta pra primeira página quando o conjunto filtrado muda —
+  // senão o usuário pode ficar numa página que não existe mais.
+  useEffect(() => { setPage(1); }, [dateFilter, customDateRange, searchTerm, categoryFilter]);
+
+  const totalPages = Math.max(1, Math.ceil(sortedItems.length / PAGE_SIZE));
+  const currentPage = Math.min(page, totalPages);
+  const paginatedItems = useMemo(
+    () => sortedItems.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE),
+    [sortedItems, currentPage]
   );
 
   const totalMrrLost = filteredItems.reduce((a, c) => a + c.mrr, 0);
@@ -235,38 +294,47 @@ const CancellationsView = () => {
           </select>
         </GlassCard>
 
-        <div className="bg-white dark:bg-slate-900 rounded-xl shadow-sm border border-slate-100 dark:border-slate-800 overflow-x-auto mb-10">
-          <table className="w-full text-left border-collapse">
-            <thead>
-              <tr className="bg-slate-50 dark:bg-slate-800/50 border-b border-slate-100 dark:border-slate-800 text-slate-500 dark:text-slate-400 text-xs uppercase tracking-wider">
-                <th className="px-4 py-3 font-semibold">Cliente</th>
-                <th className="px-4 py-3 font-semibold">Tipo</th>
-                <th className="px-4 py-3 font-semibold">Data</th>
-                <th className="px-4 py-3 font-semibold text-right">MRR</th>
-                <th className="px-4 py-3 font-semibold">Motivo (API)</th>
-                <th className="px-4 py-3 font-semibold">Categoria</th>
-                <th className="px-4 py-3 font-semibold">Observação</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-50 dark:divide-slate-800">
-              {sortedItems.map((item) => (
-                <CancellationRow
-                  key={item.id}
-                  item={item}
-                  categories={categories}
-                  onCategoryChange={handleCategoryChange}
-                  onNoteSave={handleNoteSave}
-                />
-              ))}
-              {sortedItems.length === 0 && (
-                <tr>
-                  <td colSpan="7" className="px-6 py-8 text-center text-slate-400 dark:text-slate-500 text-sm">
-                    Nenhum cancelamento encontrado.
-                  </td>
+        <div className="bg-white dark:bg-slate-900 rounded-xl shadow-sm border border-slate-100 dark:border-slate-800 mb-10">
+          <div className="overflow-x-auto">
+            <table className="w-full text-left border-collapse">
+              <thead>
+                <tr className="bg-slate-50 dark:bg-slate-800/50 border-b border-slate-100 dark:border-slate-800 text-slate-500 dark:text-slate-400 text-xs uppercase tracking-wider">
+                  <th className="px-4 py-3 font-semibold">Cliente</th>
+                  <th className="px-4 py-3 font-semibold">Tipo</th>
+                  <th className="px-4 py-3 font-semibold">Data</th>
+                  <th className="px-4 py-3 font-semibold text-right">MRR</th>
+                  <th className="px-4 py-3 font-semibold">Motivo (API)</th>
+                  <th className="px-4 py-3 font-semibold">Categoria</th>
+                  <th className="px-4 py-3 font-semibold">Observação</th>
                 </tr>
-              )}
-            </tbody>
-          </table>
+              </thead>
+              <tbody className="divide-y divide-slate-50 dark:divide-slate-800">
+                {paginatedItems.map((item) => (
+                  <CancellationRow
+                    key={item.id}
+                    item={item}
+                    categories={categories}
+                    onCategoryChange={handleCategoryChange}
+                    onNoteSave={handleNoteSave}
+                  />
+                ))}
+                {sortedItems.length === 0 && (
+                  <tr>
+                    <td colSpan="7" className="px-6 py-8 text-center text-slate-400 dark:text-slate-500 text-sm">
+                      Nenhum cancelamento encontrado.
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+          <PaginationControls
+            page={currentPage}
+            totalPages={totalPages}
+            total={sortedItems.length}
+            pageSize={PAGE_SIZE}
+            onPageChange={setPage}
+          />
         </div>
 
         <GlassCard variant="default" className="p-5">

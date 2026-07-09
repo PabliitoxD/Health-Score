@@ -1,4 +1,4 @@
-import { formatCurrency } from './formatters';
+import { formatCurrency, formatDateOnly } from './formatters';
 
 const TYPE_LABELS = { cancellation: 'Cancelamento', non_renewal: 'Não renovação' };
 
@@ -12,7 +12,7 @@ export const exportCancellationsToXlsx = async (items, categoryLabelById, filena
     'Código': item.id,
     'Plano': item.tier,
     'Tipo': TYPE_LABELS[item.type] || item.type,
-    'Data': item.eventDate || '',
+    'Data': formatDateOnly(item.eventDate),
     'MRR Perdido': item.mrr,
     'MRR Perdido (formatado)': formatCurrency(item.mrr),
     'Categoria': categoryLabelById[item.category] || item.category,

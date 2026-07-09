@@ -17,3 +17,15 @@ export const formatJoinDate = (dateStr) => {
   const date = new Date(dateStr + 'T00:00:00');
   return date.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
 };
+
+// Aceita tanto data pura ("2026-07-08") quanto datetime com espaço
+// ("2026-07-08 08:00:05", formato do cycleEndDate de não renovação) e
+// devolve sempre DD/MM/AAAA — normaliza o separador pra "T" antes de
+// parsear, senão o Safari rejeita o formato com espaço.
+export const formatDateOnly = (dateStr) => {
+  if (!dateStr) return '—';
+  const datePart = dateStr.split(' ')[0].split('T')[0];
+  const date = new Date(datePart + 'T00:00:00');
+  if (Number.isNaN(date.getTime())) return '—';
+  return date.toLocaleDateString('pt-BR');
+};
