@@ -7,6 +7,7 @@ import { readCustomerSnapshot, writeCustomerSnapshot } from './server/customerSn
 import { readStoreCache, writeStoreCache } from './server/storeCache.js';
 import { readKnownCodes, writeKnownCodes } from './server/knownCodes.js';
 import { readLeadCheckState, writeLeadCheckState } from './server/leadCheckState.js';
+import { readCancelledCheckState, writeCancelledCheckState } from './server/cancelledCheckState.js';
 import { readCancellationDetectedAt, writeCancellationDetectedAt } from './server/cancellationDates.js';
 import { readListingScanState, writeListingScanState } from './server/listingScanState.js';
 import {
@@ -35,6 +36,15 @@ const SYNC_INTERVAL_MINUTES = Number(process.env.SYNC_INTERVAL_MINUTES) || 60;
 // sobrecarregar a API externa com o detalhe de ~1000 contas que raramente
 // mudam de estado. Ver leadCheckState.js e o uso de skipCodes em loadStore.
 const LEAD_RECHECK_INTERVAL_MS = 12 * 60 * 60 * 1000;
+
+// Contas já confirmadas como "cancelled" também não precisam ter o detalhe
+// rebuscado a cada sincronização (hora em hora) — reativação é rara o
+// suficiente pra ser detectada 1x/dia, sem custar chamada de API à toa pra
+// quem já saiu de vez. Decisão tomada com o Pablo em 2026-07-09: contas
+// canceladas dominavam a maior parte do tempo de sync que sobrava depois do
+// skip de leads, sem nunca mudar de estado entre um ciclo e outro. Ver
+// server/cancelledCheckState.js.
+const CANCELLED_RECHECK_INTERVAL_MS = 24 * 60 * 60 * 1000;
 
 // Margem de segurança subtraída da última varredura completa/incremental
 // antes de usá-la como corte pra próxima varredura (ver sinceDate em
@@ -325,15 +335,21 @@ async function loadStore(isInitialLoad) {
     const knownCodes = readKnownCodes();
 
     // Leads (trial travado, nunca pagou de verdade) checados há menos de
-    // LEAD_RECHECK_INTERVAL_MS não têm o detalhe buscado de novo agora —
-    // ver leadCheckState.js e a decisão tomada com o Pablo em 2026-07-08.
+    // LEAD_RECHECK_INTERVAL_MS e contas já canceladas checadas há menos de
+    // CANCELLED_RECHECK_INTERVAL_MS não têm o detalhe buscado de novo agora —
+    // ver leadCheckState.js/cancelledCheckState.js e a decisão tomada com o
+    // Pablo em 2026-07-08 (leads) e 2026-07-09 (cancelados).
     const leadCheckState = readLeadCheckState();
+    const cancelledCheckState = readCancelledCheckState();
+    const skippableSince = { lead: LEAD_RECHECK_INTERVAL_MS, cancelled: CANCELLED_RECHECK_INTERVAL_MS };
+    const checkStateByStatus = { lead: leadCheckState, cancelled: cancelledCheckState };
     const skipCodes = new Set(
       lastGoodStore.customers
         .filter((c) => {
-          if (c.accountStatus !== 'lead') return false;
-          const lastChecked = leadCheckState[c.id];
-          return !!lastChecked && Date.now() - new Date(lastChecked).getTime() < LEAD_RECHECK_INTERVAL_MS;
+          const interval = skippableSince[c.accountStatus];
+          if (!interval) return false;
+          const lastChecked = checkStateByStatus[c.accountStatus][c.id];
+          return !!lastChecked && Date.now() - new Date(lastChecked).getTime() < interval;
         })
         .map((c) => c.id)
     );
@@ -368,37 +384,58 @@ async function loadStore(isInitialLoad) {
     writeListingScanState({ lastScanAt: thisScanStartedAt });
 
     const freshCustomers = (data.customers || []).map(transformCustomer).map(enrichCustomer);
-    // Leads pulados entram na store de novo, sem alteração — só não tiveram
-    // o detalhe rebuscado nesse ciclo.
-    const reusedLeadCustomers = Array.from(skipCodes).map((code) => liveCustomersById.get(code)).filter(Boolean);
-    const customers = [...freshCustomers, ...reusedLeadCustomers];
+    // Leads e cancelados pulados entram na store de novo, sem alteração — só
+    // não tiveram o detalhe rebuscado nesse ciclo.
+    const reusedSkippedCustomers = Array.from(skipCodes).map((code) => liveCustomersById.get(code)).filter(Boolean);
+    const customers = [...freshCustomers, ...reusedSkippedCustomers];
     validateAccountStatusHeuristics(customers);
     writeKnownCodes([...knownCodes, ...customers.filter((c) => c.everPaid).map((c) => c.id)]);
 
+    // Cancelamentos/não-renovações também precisam ser carregados adiante
+    // pras contas puladas — sem isso, um cliente cancelado que não teve o
+    // detalhe rebuscado nesse ciclo desapareceria do relatório de
+    // cancelamentos (data.cancellations só cobre quem teve detalhe buscado
+    // de verdade nesse ciclo).
+    const lastCancellationById = new Map(lastGoodStore.cancellations.map((c) => [c.id, c]));
+    const lastNonRenewalById = new Map(lastGoodStore.nonRenewals.map((c) => [c.id, c]));
+    const reusedCancellations = Array.from(skipCodes).map((code) => lastCancellationById.get(code)).filter(Boolean);
+    const reusedNonRenewals = Array.from(skipCodes).map((code) => lastNonRenewalById.get(code)).filter(Boolean);
+
     // "Checado agora" só pra quem teve detalhe buscado de verdade; quem foi
     // pulado mantém o timestamp antigo (ainda dentro da janela). Quem deixou
-    // de ser lead (converteu ou cancelou de vez) sai do controle.
+    // de ser lead/cancelado (converteu, reativou ou cancelou de vez) sai do
+    // controle correspondente.
     const now = new Date().toISOString();
     const nextLeadCheckState = { ...leadCheckState };
+    const nextCancelledCheckState = { ...cancelledCheckState };
     freshCustomers.forEach((c) => {
       if (c.accountStatus === 'lead') nextLeadCheckState[c.id] = now;
       else delete nextLeadCheckState[c.id];
+      if (c.accountStatus === 'cancelled') nextCancelledCheckState[c.id] = now;
+      else delete nextCancelledCheckState[c.id];
     });
     writeLeadCheckState(nextLeadCheckState);
+    writeCancelledCheckState(nextCancelledCheckState);
 
-    // Reconstrói do zero a partir dos cancelamentos atuais — quem reativou
-    // e não está mais cancelado sai do controle sozinho (se cancelar nesse
-    // código de novo no futuro, é tratado como uma detecção nova).
+    // Reconstrói a partir dos cancelamentos atuais (recém-buscados + os
+    // reaproveitados de contas puladas) — quem reativou e não está mais
+    // cancelado sai do controle sozinho (se cancelar nesse código de novo no
+    // futuro, é tratado como uma detecção nova). Precisa incluir os
+    // reaproveitados aqui também, senão a data de detecção de uma conta
+    // pulada seria apagada e, quando ela finalmente for rechecada de novo, o
+    // cancelamento silencioso ganharia uma data nova (a do recheck) em vez
+    // de manter a data original.
+    const allCancellations = [...(data.cancellations || []), ...reusedCancellations];
     const nextCancelDetectedAt = {};
-    (data.cancellations || []).forEach((c) => {
+    allCancellations.forEach((c) => {
       if (c.cancelDate) nextCancelDetectedAt[c.id] = c.cancelDate;
     });
     writeCancellationDetectedAt(nextCancelDetectedAt);
 
     store = {
       customers,
-      cancellations: data.cancellations || [],
-      nonRenewals: data.nonRenewals || [],
+      cancellations: allCancellations,
+      nonRenewals: [...(data.nonRenewals || []), ...reusedNonRenewals],
       updatedAt: new Date().toISOString(),
     };
 
