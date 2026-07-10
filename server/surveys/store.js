@@ -1,6 +1,6 @@
 // Persistência em disco de pesquisas (NPS/CSAT) disparadas e respostas
-// recebidas — mesmo padrão de server/storeCache.js. Antes, esse estado era
-// só `let` em memória (resetava a cada restart/deploy); como o deploy em
+// recebidas — mesmo padrão de server/sync/storeCache.js. Antes, esse estado
+// era só `let` em memória (resetava a cada restart/deploy); como o deploy em
 // produção é manual e frequente, isso vinha apagando pesquisas já disparadas
 // e respostas de clientes silenciosamente a cada novo deploy.
 

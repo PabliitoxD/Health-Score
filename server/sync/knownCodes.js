@@ -4,8 +4,8 @@
 // plano pago (a API reseta pra "Gratuito" quando cancela de vez, e nesse
 // ponto a varredura de /dashboard/accounts não as encontra mais).
 //
-// Começa com o seed fornecido pelo time (server/knownCodesSeed.js, versionado
-// no git) e cresce com o cache em disco conforme novas contas são
+// Começa com o seed fornecido pelo time (server/sync/knownCodesSeed.js,
+// versionado no git) e cresce com o cache em disco conforme novas contas são
 // confirmadas como pagantes em cada sync. Sem cache persistente entre
 // deploys, o registro volta a ser só o seed — ainda assim cobre a lista de
 // referência conhecida.
@@ -16,7 +16,7 @@ import { fileURLToPath } from 'url';
 import { KNOWN_CODES_SEED } from './knownCodesSeed.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
-const KNOWN_CODES_PATH = join(__dirname, '.cache', 'known-codes.json');
+const KNOWN_CODES_PATH = join(__dirname, '..', '.cache', 'known-codes.json');
 
 export function readKnownCodes() {
   let cached = [];

@@ -10,7 +10,7 @@ import { dirname, join } from 'path';
 import { fileURLToPath } from 'url';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
-const STORE_CACHE_PATH = join(__dirname, '.cache', 'store-cache.json');
+const STORE_CACHE_PATH = join(__dirname, '..', '.cache', 'store-cache.json');
 
 export function readStoreCache() {
   try {

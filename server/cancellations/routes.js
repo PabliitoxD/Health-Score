@@ -1,18 +1,18 @@
 import { Router } from 'express';
 import { requireAuth } from '../middleware/requireAuth.js';
-import { getStore } from '../services/syncEngine.js';
+import { getStore } from '../sync/engine.js';
 import {
   CANCELLATION_CATEGORIES,
   isValidCategory,
   readCancellationCategories,
   writeCancellationCategories,
-} from '../cancellationCategories.js';
+} from './categoriesStore.js';
 
 const router = Router();
 
 // Categorização manual de motivo de cancelamento (por conta) — persistida em
-// disco (ver server/cancellationCategories.js), sobrevive a reinícios e não é
-// tocada pela sincronização periódica com a API externa.
+// disco (ver ./categoriesStore.js), sobrevive a reinícios e não é tocada
+// pela sincronização periódica com a API externa.
 let cancellationCategories = readCancellationCategories();
 
 router.get('/cancellations', requireAuth, (_req, res) => {
@@ -30,11 +30,12 @@ router.get('/cancellation-categories/options', requireAuth, (_req, res) => {
 });
 
 // Relatório de cancelamentos: consolida cancelamentos voluntários (incluindo
-// os "silenciosos", ver deriveAccountStatus) e não renovações por falha de
-// pagamento numa lista única, já com a categoria de motivo aplicada — a
-// categoria manual (cancellationCategories) tem prioridade; sem categoria
-// manual, falha de pagamento assume 'falha_pagamento' automaticamente e o
-// resto cai em 'nao_informado', aguardando classificação do CS.
+// os "silenciosos", ver deriveAccountStatus em server/sync/engine.js) e não
+// renovações por falha de pagamento numa lista única, já com a categoria de
+// motivo aplicada — a categoria manual (cancellationCategories) tem
+// prioridade; sem categoria manual, falha de pagamento assume
+// 'falha_pagamento' automaticamente e o resto cai em 'nao_informado',
+// aguardando classificação do CS.
 router.get('/cancellations-report', requireAuth, (_req, res) => {
   const store = getStore();
   const cancelItems = store.cancellations.map((c) => ({

@@ -2,12 +2,12 @@ import express from 'express';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 import { loadEnvFile } from './server/loadEnv.js';
-import { startSync } from './server/services/syncEngine.js';
-import authRoutes from './server/routes/auth.js';
-import customersRoutes from './server/routes/customers.js';
-import statsRoutes from './server/routes/stats.js';
-import cancellationsRoutes from './server/routes/cancellations.js';
-import surveysRoutes from './server/routes/surveys.js';
+import { startSync } from './server/sync/engine.js';
+import authRoutes from './server/auth/routes.js';
+import customersRoutes from './server/customers/routes.js';
+import dashboardRoutes from './server/dashboard/routes.js';
+import cancellationsRoutes from './server/cancellations/routes.js';
+import surveysRoutes from './server/surveys/routes.js';
 
 loadEnvFile();
 
@@ -16,14 +16,17 @@ const app = express();
 app.use(express.json({ limit: '10mb' }));
 
 // ─── Rotas ───────────────────────────────────────────────────────────────────
-// Cada aba do dashboard tem seu próprio módulo de rotas (ver server/routes/) —
-// Dashboard/Clientes usam customers+stats, Cancelamentos e Pesquisas são
-// autocontidos. A aba Empresa não tem rota própria: é uma agregação
-// client-side dos recursos abaixo.
+// Cada aba do dashboard tem sua própria pasta em server/ com rotas + estado
+// específico (ver server/{dashboard,customers,cancellations,surveys}/) — a
+// aba Empresa não tem pasta própria: é uma agregação client-side dos
+// recursos das outras abas, sem nenhum endpoint exclusivo. server/sync/
+// concentra o motor de sincronização com a API externa (usado por
+// Dashboard/Clientes/Cancelamentos); server/middleware/ e server/auth/ são
+// infraestrutura compartilhada, não abas.
 
 app.use('/api/auth', authRoutes);
 app.use('/api/customers', customersRoutes);
-app.use('/api/stats', statsRoutes);
+app.use('/api/stats', dashboardRoutes);
 app.use('/api', cancellationsRoutes);
 app.use('/api', surveysRoutes);
 

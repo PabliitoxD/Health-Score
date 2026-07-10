@@ -5,14 +5,18 @@
 // client_request nem em payment_failure). Sem essa data persistida, o
 // filtro de período (Hoje/Semana/Mês) nunca contaria esses cancelamentos,
 // porque cancelDate ficaria null pra sempre — ver extractCancellation em
-// server/externalApi.js.
+// server/sync/externalApi.js.
+//
+// Bookkeeping interno do motor de sync (não confundir com a categorização
+// manual de motivo de cancelamento, que fica em server/cancellations/ — ver
+// server/cancellations/categoriesStore.js).
 
 import { readFileSync, writeFileSync, mkdirSync, existsSync } from 'fs';
 import { dirname, join } from 'path';
 import { fileURLToPath } from 'url';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
-const STATE_PATH = join(__dirname, '.cache', 'cancellation-detected-at.json');
+const STATE_PATH = join(__dirname, '..', '.cache', 'cancellation-detected-at.json');
 
 // { [codigo]: "2026-07-08T18:00:00.000Z" }
 export function readCancellationDetectedAt() {

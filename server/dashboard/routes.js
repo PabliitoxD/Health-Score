@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { requireAuth } from '../middleware/requireAuth.js';
-import { getStore, calcRevenueRetention } from '../services/syncEngine.js';
+import { getStore, calcRevenueRetention } from '../sync/engine.js';
 
 const router = Router();
 
@@ -11,8 +11,9 @@ router.get('/', requireAuth, (_req, res) => {
   if (!customers.length) return res.json(null);
 
   // "Clientes ativos" (MRR Total, Média de Saúde etc.) considera só quem
-  // tem plano pago e não teve a conta cancelada (ver deriveAccountStatus).
-  // Trial é contagem à parte — ainda não é receita/cliente pagante.
+  // tem plano pago e não teve a conta cancelada (ver deriveAccountStatus em
+  // server/sync/engine.js). Trial é contagem à parte — ainda não é
+  // receita/cliente pagante.
   const activeCustomers = customers.filter(c => c.accountStatus === 'active');
   const cancelledCustomers = customers.filter(c => c.accountStatus === 'cancelled');
   const trialCount = customers.filter(c => c.accountStatus === 'trial').length;

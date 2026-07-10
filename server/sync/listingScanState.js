@@ -2,15 +2,20 @@
 // sincronização não precisar reescanear as ~2639 páginas inteiras — só as
 // páginas com cadastros mais novos que isso (a listagem vem ordenada por
 // registration_date decrescente — ver fetchPaidAccountCodes em
-// server/externalApi.js). Decisão tomada com o Pablo em 2026-07-08: sem
+// server/sync/externalApi.js). Decisão tomada com o Pablo em 2026-07-08: sem
 // varredura completa periódica de segurança, só a incremental.
+//
+// Isso só sobrevive entre deploys se o caminho server/.cache estiver num
+// volume persistente configurado no painel de deploy (ver Dockerfile) — sem
+// isso, cada deploy sobe com esse arquivo vazio e a sincronização seguinte
+// volta a ser uma varredura completa do zero.
 
 import { readFileSync, writeFileSync, mkdirSync, existsSync } from 'fs';
 import { dirname, join } from 'path';
 import { fileURLToPath } from 'url';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
-const STATE_PATH = join(__dirname, '.cache', 'listing-scan-state.json');
+const STATE_PATH = join(__dirname, '..', '.cache', 'listing-scan-state.json');
 
 // { lastScanAt: "2026-07-08T18:02:16.926Z" }
 export function readListingScanState() {

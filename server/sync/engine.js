@@ -1,11 +1,11 @@
-import { fetchFromExternalApi } from '../externalApi.js';
-import { readCustomerSnapshot, writeCustomerSnapshot } from '../customerSnapshot.js';
-import { readStoreCache, writeStoreCache } from '../storeCache.js';
-import { readKnownCodes, writeKnownCodes } from '../knownCodes.js';
-import { readLeadCheckState, writeLeadCheckState } from '../leadCheckState.js';
-import { readCancelledCheckState, writeCancelledCheckState } from '../cancelledCheckState.js';
-import { readCancellationDetectedAt, writeCancellationDetectedAt } from '../cancellationDates.js';
-import { readListingScanState, writeListingScanState } from '../listingScanState.js';
+import { fetchFromExternalApi } from './externalApi.js';
+import { readCustomerSnapshot, writeCustomerSnapshot } from './customerSnapshot.js';
+import { readStoreCache, writeStoreCache } from './storeCache.js';
+import { readKnownCodes, writeKnownCodes } from './knownCodes.js';
+import { readLeadCheckState, writeLeadCheckState } from './leadCheckState.js';
+import { readCancelledCheckState, writeCancelledCheckState } from './cancelledCheckState.js';
+import { readCancellationDetectedAt, writeCancellationDetectedAt } from './cancellationDates.js';
+import { readListingScanState, writeListingScanState } from './listingScanState.js';
 
 // Lidas dentro das funções (não no topo do módulo) de propósito: os módulos
 // importados por server.js são avaliados ANTES do loadEnvFile() rodar (ver

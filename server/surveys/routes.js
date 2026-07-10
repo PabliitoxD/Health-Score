@@ -1,11 +1,11 @@
 import { Router } from 'express';
 import { requireAuth } from '../middleware/requireAuth.js';
-import { readSurveyStore, writeSurveyStore } from '../state/surveyStore.js';
+import { readSurveyStore, writeSurveyStore } from './store.js';
 
 const router = Router();
 
-// In-memory + persistido em disco (ver server/state/surveyStore.js) —
-// centralizado no servidor em vez de localStorage por navegador.
+// In-memory + persistido em disco (ver ./store.js) — centralizado no
+// servidor em vez de localStorage por navegador.
 let surveyStore = readSurveyStore();
 
 // Disparo de pesquisa é ação interna do time de CS — exige login.

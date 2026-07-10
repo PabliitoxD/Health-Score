@@ -2,7 +2,7 @@
 // sincronização com a API real — usados como "anterior" na próxima:
 //
 // - Score: é métrica nossa (calculada), a API não tem histórico disso.
-// - MRR: normalmente vem de plan.renewals[1].value (ver server/externalApi.js),
+// - MRR: normalmente vem de plan.renewals[1].value (ver server/sync/externalApi.js),
 //   mas esse snapshot serve de fallback pra contas com menos de 2 renovações
 //   no histórico (cliente muito novo) — assim Expansion/Contraction/NRR/GRR
 //   continuam funcionando mesmo pra quem ainda não tem histórico suficiente.
@@ -12,7 +12,11 @@ import { dirname, join } from 'path';
 import { fileURLToPath } from 'url';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
-const SNAPSHOT_PATH = join(__dirname, '.cache', 'customer-snapshots.json');
+// server/sync/customerSnapshot.js → server/.cache/ (um nível acima) — o
+// caminho físico do cache em disco não muda com a reorganização em pastas
+// por aba, pra não perder o histórico já acumulado em produção nem quebrar
+// o volume persistente configurado no EasyPanel (ver Dockerfile).
+const SNAPSHOT_PATH = join(__dirname, '..', '.cache', 'customer-snapshots.json');
 
 // { [codigo]: { score, mrr } }
 export function readCustomerSnapshot() {

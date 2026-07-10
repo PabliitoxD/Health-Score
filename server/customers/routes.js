@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { requireAuth } from '../middleware/requireAuth.js';
-import { getStore } from '../services/syncEngine.js';
+import { getStore } from '../sync/engine.js';
 
 const router = Router();
 
