@@ -31,7 +31,13 @@ const computeStats = (customers, retainedCustomers, cancellationsInPeriod, trial
   };
 };
 
-export const useCustomers = () => {
+// isAuthenticated: o hook é chamado incondicionalmente no topo de App.jsx
+// (antes do gate de login, pra não violar a regra de hooks), então o efeito
+// de carga inicial só pode disparar DEPOIS que o login termina — as rotas
+// /api/* agora exigem Basic Auth (ver server/middleware/requireAuth.js) e a
+// chamada dispararia 401 se rodasse no mount, antes de sessionStorage ter o
+// header de autenticação.
+export const useCustomers = (isAuthenticated) => {
   const [allCustomers, setAllCustomers] = useState([]);
   const [allCancellations, setAllCancellations] = useState([]);
   const [globalStats, setGlobalStats] = useState({});
@@ -43,6 +49,8 @@ export const useCustomers = () => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    if (!isAuthenticated) return;
+
     const loadData = async () => {
       setLoading(true);
       try {
@@ -61,7 +69,7 @@ export const useCustomers = () => {
       }
     };
     loadData();
-  }, []);
+  }, [isAuthenticated]);
 
   // "Ativo até o fim do período" (applyAsOfFilter), não "entrou dentro do
   // período" — um cliente antigo continua contando em "Este Mês" mesmo tendo

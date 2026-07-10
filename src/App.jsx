@@ -18,7 +18,7 @@ const isSurveyRoute = () => {
 const App = () => {
   const { isAuthenticated } = useAuth();
   const [activeView, setActiveView] = useState('dashboard');
-  const customerData = useCustomers();
+  const customerData = useCustomers(isAuthenticated);
 
   if (isSurveyRoute()) return <SurveyResponsePage />;
   if (!isAuthenticated) return <LoginPage />;

@@ -1,24 +1,33 @@
-import React, { createContext, useContext, useState } from 'react';
+import React, { createContext, useContext, useState, useEffect } from 'react';
+import { getAuthHeader, setAuthHeader, clearAuthHeader, setUnauthorizedHandler } from '../services/authFetch';
 
-const CREDENTIALS = { username: 'admin', password: 'CS$uperfin!@' };
 const AuthContext = createContext(null);
 
 export const AuthProvider = ({ children }) => {
-  const [isAuthenticated, setIsAuthenticated] = useState(
-    () => sessionStorage.getItem('hs_auth') === 'true'
-  );
+  const [isAuthenticated, setIsAuthenticated] = useState(() => !!getAuthHeader());
 
-  const login = (username, password) => {
-    if (username === CREDENTIALS.username && password === CREDENTIALS.password) {
-      sessionStorage.setItem('hs_auth', 'true');
-      setIsAuthenticated(true);
-      return true;
-    }
-    return false;
+  // Qualquer chamada às rotas protegidas que voltar 401 (sessão inválida ou
+  // credencial trocada no servidor) derruba a sessão local também, em vez de
+  // deixar o painel preso mostrando dado vazio/desatualizado.
+  useEffect(() => {
+    setUnauthorizedHandler(() => setIsAuthenticated(false));
+  }, []);
+
+  const login = async (username, password) => {
+    const res = await fetch('/api/auth/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username, password }),
+    });
+    if (!res.ok) return false;
+
+    setAuthHeader(`Basic ${btoa(`${username}:${password}`)}`);
+    setIsAuthenticated(true);
+    return true;
   };
 
   const logout = () => {
-    sessionStorage.removeItem('hs_auth');
+    clearAuthHeader();
     setIsAuthenticated(false);
   };
 

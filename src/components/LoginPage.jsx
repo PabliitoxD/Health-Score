@@ -10,15 +10,18 @@ const LoginPage = () => {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
     setLoading(true);
-    setTimeout(() => {
-      const ok = login(username, password);
+    try {
+      const ok = await login(username, password);
       if (!ok) setError('Usuário ou senha inválidos.');
+    } catch {
+      setError('Falha ao conectar com o servidor.');
+    } finally {
       setLoading(false);
-    }, 400);
+    }
   };
 
   return (

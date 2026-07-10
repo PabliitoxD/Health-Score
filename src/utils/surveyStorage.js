@@ -1,6 +1,11 @@
+import { authFetch } from '../services/authFetch';
+
 export const generateToken = () =>
   Date.now().toString(36) + Math.random().toString(36).substr(2, 6);
 
+// Pública — a mesma pesquisa é buscada tanto pela tela interna (autenticada)
+// quanto pela página de resposta que o cliente externo abre pelo link, sem
+// login (ver server/routes/surveys.js).
 export const getSurveys = async () => {
   const res = await fetch('/api/surveys');
   if (!res.ok) throw new Error('Falha ao buscar pesquisas');
@@ -8,8 +13,9 @@ export const getSurveys = async () => {
   return surveys;
 };
 
+// Disparo de pesquisa é ação interna do time de CS — exige login.
 export const saveSurvey = async (survey) => {
-  const res = await fetch('/api/surveys', {
+  const res = await authFetch('/api/surveys', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(survey),
