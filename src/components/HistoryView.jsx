@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { History, UserPlus, TrendingUp, DollarSign, Search, X, ChevronDown, ChevronUp } from 'lucide-react';
+import { History, UserPlus, TrendingUp, DollarSign, Search, X, ChevronDown, ChevronUp, Users } from 'lucide-react';
 import { getMonthlyHistory } from '../services/api';
 import { formatCurrency, formatJoinDate, formatDateOnly } from '../utils/formatters';
 import GlassCard from './ui/GlassCard';
@@ -82,10 +82,11 @@ const MonthRow = ({ bucket, expanded, onToggle }) => (
       ))}
       <td className="px-4 py-3 text-right whitespace-nowrap"><DeltaValue value={bucket.netMrr} formatter={formatCurrency} /></td>
       <td className="px-4 py-3 text-right whitespace-nowrap"><DeltaValue value={bucket.netCustomers} /></td>
+      <td className="px-4 py-3 text-right whitespace-nowrap font-semibold text-slate-900 dark:text-white">{bucket.activeCustomers}</td>
     </tr>
     {expanded && (
       <tr>
-        <td colSpan={COLUMN_TYPES.length + 3} className="px-4 pb-4 bg-slate-50/60 dark:bg-slate-800/30">
+        <td colSpan={COLUMN_TYPES.length + 4} className="px-4 pb-4 bg-slate-50/60 dark:bg-slate-800/30">
           <div className="rounded-xl border border-slate-100 dark:border-slate-800 overflow-hidden overflow-x-auto bg-white dark:bg-slate-900">
             <table className="w-full text-left border-collapse">
               <tbody className="divide-y divide-slate-50 dark:divide-slate-800">
@@ -199,7 +200,10 @@ const HistoryView = () => {
     const totalAssinaturas = months.reduce((a, m) => a + (m.counts.assinatura || 0), 0);
     const totalSaidas = months.reduce((a, m) => a + (m.counts.cancelamento || 0) + (m.counts.nao_renovacao || 0), 0);
     const netMrrAcumulado = months.reduce((a, m) => a + m.netMrr, 0);
-    return { totalAssinaturas, totalSaidas, netMrrAcumulado, mesesRastreados: months.length };
+    // months vem ordenado do mais recente pro mais antigo — o primeiro item
+    // é o total acumulado de clientes ativos ao final do mês mais recente.
+    const clientesAtivosAgora = months[0]?.activeCustomers ?? 0;
+    return { totalAssinaturas, totalSaidas, netMrrAcumulado, mesesRastreados: months.length, clientesAtivosAgora };
   }, [months]);
 
   if (loading) {
@@ -220,7 +224,11 @@ const HistoryView = () => {
           </p>
         </div>
 
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-8">
+        <div className="grid grid-cols-2 sm:grid-cols-5 gap-4 mb-8">
+          <SummaryCard
+            icon={<Users size={18} />} iconBg="bg-brand-50 dark:bg-brand-500/10" iconColor="text-brand-600 dark:text-brand-400"
+            label="Clientes Ativos (acumulado)" value={totals.clientesAtivosAgora}
+          />
           <SummaryCard
             icon={<History size={18} />} iconBg="bg-slate-100 dark:bg-slate-800" iconColor="text-slate-600 dark:text-slate-400"
             label="Meses Rastreados" value={totals.mesesRastreados}
@@ -283,6 +291,7 @@ const HistoryView = () => {
                     ))}
                     <th className="px-4 py-3 font-semibold text-right">Δ MRR</th>
                     <th className="px-4 py-3 font-semibold text-right">Δ Clientes</th>
+                    <th className="px-4 py-3 font-semibold text-right" title="Total acumulado de clientes ativos ao final do mês">Clientes Ativos</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -296,7 +305,7 @@ const HistoryView = () => {
                   ))}
                   {months.length === 0 && (
                     <tr>
-                      <td colSpan={COLUMN_TYPES.length + 3} className="px-6 py-8 text-center text-slate-400 dark:text-slate-500 text-sm">
+                      <td colSpan={COLUMN_TYPES.length + 4} className="px-6 py-8 text-center text-slate-400 dark:text-slate-500 text-sm">
                         Nenhum evento de histórico encontrado ainda.
                       </td>
                     </tr>

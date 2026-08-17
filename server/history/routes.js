@@ -40,7 +40,21 @@ router.get('/history/monthly', requireAuth, (_req, res) => {
     }
   });
 
-  const months = Object.values(byMonth)
+  // "Clientes Ativos" acumulado: caminha os meses em ordem cronológica
+  // somando netCustomers (assinaturas − cancelamentos − não-renovações) de
+  // cada mês — o valor ao FINAL de cada mês, não só a variação daquele mês
+  // (netCustomers já cobre a variação; activeCustomers é o total corrente).
+  // Funciona também pra reativação: um cliente que cancela e assina de novo
+  // gera um novo evento de assinatura (subscription_date muda), então volta
+  // a somar na conta certa.
+  const chronological = Object.values(byMonth).sort((a, b) => (a.month > b.month ? 1 : -1));
+  let runningActive = 0;
+  chronological.forEach((bucket) => {
+    runningActive += bucket.netCustomers;
+    bucket.activeCustomers = runningActive;
+  });
+
+  const months = chronological
     .map((bucket) => ({ ...bucket, events: bucket.events.sort((a, b) => (a.date < b.date ? 1 : -1)) }))
     .sort((a, b) => (a.month < b.month ? 1 : -1));
 

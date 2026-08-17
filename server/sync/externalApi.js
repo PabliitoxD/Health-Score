@@ -411,7 +411,15 @@ export async function fetchFromExternalApi(baseUrl, previousScores = {}, previou
     if (cancellation) cancellations.push(cancellation);
     if (nonRenewal) nonRenewals.push(nonRenewal);
 
-    const accountHistoryEvents = extractHistoryEvents(detail, row);
+    // "Teve Pagamento" (row['Teve Pagamento'], ver adaptAccountDetail acima)
+    // exige pelo menos uma renovação com status "paid" (ou trial finalizado
+    // com plano pago) — sem isso, plan.subscription_date/renewals de um
+    // trial que nunca converteu geraria um evento de "Assinatura" fantasma
+    // (o código detalha TODO código conhecido, incluindo leads, pra detectar
+    // conversão — ver leadCodes em fetchFromExternalApi). Cancelamento/não
+    // renovação abaixo já são naturalmente restritos a quem pagou (ver
+    // extractCancellation).
+    const accountHistoryEvents = row['Teve Pagamento'] ? extractHistoryEvents(detail, row) : [];
     if (cancellation) {
       accountHistoryEvents.push({
         customerId: cancellation.id, name: cancellation.name, tier: cancellation.tier,
