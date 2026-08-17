@@ -259,6 +259,90 @@ function extractCancellation(detail, row, detectedAt) {
   return { cancellation, nonRenewal };
 }
 
+// Reconstrói a linha do tempo de assinatura/renovação/upgrade/downgrade de
+// uma conta a partir de plan.renewals[] (um ciclo de cobrança por entrada,
+// mais-recente-primeiro) e plan.upgrades_downgrades[] (eventos explícitos de
+// troca de plano, linkados ao ciclo em que aconteceram pelo campo `code`).
+// Ver o comentário sobre derivePreviousMrrFromHistory acima pra mais
+// contexto sobre o formato de renewals.
+//
+// "Assinatura" usa plan.subscription_date — mesmo campo que já vira joinDate
+// em transformCustomer (server/sync/engine.js), reaproveitando a semântica
+// que o resto do painel já usa como "Cliente desde"/"Primeira Assinatura".
+// O ciclo de renewals[] cujo expire_date cai nessa mesma data é o ciclo
+// "fundador" (usado só pra achar o MRR da assinatura) — os ciclos DEPOIS
+// dele é que viram eventos de Renovação/Upgrade/Downgrade, pra não duplicar
+// o mesmo dia como dois eventos.
+//
+// upgrades_downgrades traz duas linhas por troca de plano (o valor do plano
+// novo + uma linha negativa "Desconto no upgrade/downgrade", o desconto
+// proporcional do ciclo) — só a linha com "Upgrade"/"Downgrade" na descrição
+// interessa aqui, a de desconto é ignorada.
+function extractHistoryEvents(detail, row) {
+  const plan = detail.plan || {};
+  const customerId = row['Produtor'];
+  const name = row['Razão Social'];
+  const tier = row['Plano Atual'];
+  const renewals = plan.renewals || [];
+  const upgradesDowngrades = plan.upgrades_downgrades || [];
+
+  const upgradesDowngradesByCode = {};
+  upgradesDowngrades.forEach((entry) => {
+    if (!entry.code || /desconto/i.test(entry.description || '')) return;
+    (upgradesDowngradesByCode[entry.code] ||= []).push(entry);
+  });
+
+  const joinDate = plan.subscription_date ? normalizeDate(plan.subscription_date).split('T')[0] : null;
+  const chronological = [...renewals].reverse();
+  const events = [];
+
+  const foundingCycle = joinDate ? chronological.find((r) => r.expire_date === joinDate) : null;
+  events.push({
+    customerId,
+    name,
+    tier,
+    type: 'assinatura',
+    date: joinDate,
+    mrr: foundingCycle ? Number(foundingCycle.value) : (Number(row['Valor Plano Atual']) || null),
+    description: 'Assinatura',
+    dedupKey: `${customerId}:assinatura:${joinDate}`,
+  });
+
+  // previousMrr acompanha o valor do ciclo anterior conforme percorremos em
+  // ordem cronológica — dá pra calcular o delta de expansão/contração de
+  // upgrade/downgrade sem precisar de outra fonte (usado no relatório
+  // mensal, ver server/history/routes.js).
+  let previousMrr = foundingCycle ? Number(foundingCycle.value) : null;
+
+  chronological.forEach((r) => {
+    if (!r.expire_date || (joinDate && r.expire_date <= joinDate)) return;
+
+    const matches = upgradesDowngradesByCode[r.code] || [];
+    const upgradeMatch = matches.find((e) => /upgrade/i.test(e.description || '') && !/downgrade/i.test(e.description || ''));
+    const downgradeMatch = matches.find((e) => /downgrade/i.test(e.description || ''));
+
+    const type = upgradeMatch ? 'upgrade' : downgradeMatch ? 'downgrade' : 'renovacao';
+    const description = upgradeMatch?.description || downgradeMatch?.description || 'Renovação';
+    const mrr = Number(r.value) || null;
+
+    events.push({
+      customerId,
+      name,
+      tier,
+      type,
+      date: r.expire_date,
+      mrr,
+      previousMrr,
+      description,
+      dedupKey: `${customerId}:${r.id || r.code}`,
+    });
+
+    previousMrr = mrr;
+  });
+
+  return events.filter((e) => !!e.date);
+}
+
 // previousScores/previousMrrs: { [codigoDoProdutor]: valor } — snapshot da
 // sincronização anterior (ver server/customerSnapshot.js). "Score anterior"
 // é métrica nossa (a API não tem). "MRR anterior" só cai nesse fallback
@@ -314,6 +398,7 @@ export async function fetchFromExternalApi(baseUrl, previousScores = {}, previou
   const customers = [];
   const cancellations = [];
   const nonRenewals = [];
+  const historyEvents = [];
 
   for (let i = 0; i < codes.length; i += 1) {
     const code = codes[i];
@@ -326,7 +411,25 @@ export async function fetchFromExternalApi(baseUrl, previousScores = {}, previou
     if (cancellation) cancellations.push(cancellation);
     if (nonRenewal) nonRenewals.push(nonRenewal);
 
-    if (onAccount) onAccount(row, cancellation, nonRenewal);
+    const accountHistoryEvents = extractHistoryEvents(detail, row);
+    if (cancellation) {
+      accountHistoryEvents.push({
+        customerId: cancellation.id, name: cancellation.name, tier: cancellation.tier,
+        type: 'cancelamento', date: cancellation.cancelDate, mrr: Number(cancellation.mrr) || null,
+        description: cancellation.reason, dedupKey: `${cancellation.id}:cancelamento:${cancellation.cancelDate}`,
+      });
+    }
+    if (nonRenewal) {
+      const cycleEndDate = nonRenewal.cycleEndDate ? normalizeDate(nonRenewal.cycleEndDate).split('T')[0] : null;
+      accountHistoryEvents.push({
+        customerId: nonRenewal.id, name: nonRenewal.name, tier: nonRenewal.tier,
+        type: 'nao_renovacao', date: cycleEndDate, mrr: Number(nonRenewal.mrr) || null,
+        description: nonRenewal.reason, dedupKey: `${nonRenewal.id}:nao_renovacao:${cycleEndDate}`,
+      });
+    }
+    historyEvents.push(...accountHistoryEvents.filter((e) => !!e.date));
+
+    if (onAccount) onAccount(row, cancellation, nonRenewal, accountHistoryEvents);
 
     if ((i + 1) % 50 === 0 || i + 1 === codes.length) {
       console.log(`[externalApi] Detalhe: ${i + 1}/${codes.length} clientes processados`);
@@ -335,5 +438,5 @@ export async function fetchFromExternalApi(baseUrl, previousScores = {}, previou
     await sleep(throttleMs);
   }
 
-  return { customers, cancellations, nonRenewals };
+  return { customers, cancellations, nonRenewals, historyEvents };
 }

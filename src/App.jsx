@@ -9,6 +9,7 @@ import SurveysView from './components/SurveysView';
 import SurveyResponsePage from './components/SurveyResponsePage';
 import CompanyView from './components/CompanyView';
 import CancellationsView from './components/CancellationsView';
+import HistoryView from './components/HistoryView';
 
 const isSurveyRoute = () => {
   const params = new URLSearchParams(window.location.search);
@@ -52,6 +53,7 @@ const App = () => {
         />
       )}
       {activeView === 'cancellations' && <CancellationsView />}
+      {activeView === 'history' && <HistoryView />}
       {activeView === 'surveys' && (
         <SurveysView customers={customerData.baseCustomers} />
       )}

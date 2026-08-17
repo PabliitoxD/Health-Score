@@ -6,6 +6,7 @@ import { readLeadCheckState, writeLeadCheckState } from './leadCheckState.js';
 import { readCancelledCheckState, writeCancelledCheckState } from './cancelledCheckState.js';
 import { readCancellationDetectedAt, writeCancellationDetectedAt } from './cancellationDates.js';
 import { readListingScanState, writeListingScanState } from './listingScanState.js';
+import { readCustomerHistory, writeCustomerHistory } from '../history/store.js';
 
 // Lidas dentro das funções (não no topo do módulo) de propósito: os módulos
 // importados por server.js são avaliados ANTES do loadEnvFile() rodar (ver
@@ -432,6 +433,18 @@ async function loadStore(isInitialLoad) {
 
     writeCustomerSnapshot(Object.fromEntries(customers.map((c) => [c.id, { score: c.score, mrr: c.mrr }])));
     writeStoreCache(store);
+
+    // Mescla os eventos de histórico (assinatura/renovação/upgrade/downgrade/
+    // cancelamento/não-renovação) desta sincronização com os já persistidos —
+    // por dedupKey, nunca sobrescreve (ver server/history/store.js). Contas
+    // puladas nesse ciclo (skipCodes) não geram evento novo, mas o que já foi
+    // capturado em sincronizações anteriores continua no arquivo.
+    const existingHistory = readCustomerHistory();
+    const mergedHistory = { ...existingHistory };
+    (data.historyEvents || []).forEach((event) => {
+      if (!mergedHistory[event.dedupKey]) mergedHistory[event.dedupKey] = event;
+    });
+    writeCustomerHistory(mergedHistory);
     console.log(`[loadStore] Sincronizado com a API externa: ${store.customers.length} clientes, ${store.cancellations.length} cancelamentos, ${store.nonRenewals.length} não renovados`);
   } catch (err) {
     console.error(`[loadStore] Falha ao sincronizar com a API externa: ${err.message}`);

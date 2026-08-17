@@ -1,5 +1,5 @@
 import React from 'react';
-import { Sun, Moon, LogOut, LayoutDashboard, Users, ClipboardList, Building2, XCircle } from 'lucide-react';
+import { Sun, Moon, LogOut, LayoutDashboard, Users, ClipboardList, Building2, XCircle, History } from 'lucide-react';
 import { useTheme } from '../context/ThemeContext';
 import { useAuth } from '../context/AuthContext';
 
@@ -7,6 +7,7 @@ const NAV_ITEMS = [
   { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { id: 'customers', label: 'Clientes', icon: Users },
   { id: 'cancellations', label: 'Cancelamentos', icon: XCircle },
+  { id: 'history', label: 'Histórico', icon: History },
   { id: 'surveys', label: 'Pesquisas', icon: ClipboardList },
   { id: 'company', label: 'Empresa', icon: Building2 },
 ];

@@ -8,6 +8,7 @@ import customersRoutes from './server/customers/routes.js';
 import dashboardRoutes from './server/dashboard/routes.js';
 import cancellationsRoutes from './server/cancellations/routes.js';
 import surveysRoutes from './server/surveys/routes.js';
+import historyRoutes from './server/history/routes.js';
 
 loadEnvFile();
 
@@ -29,6 +30,7 @@ app.use('/api/customers', customersRoutes);
 app.use('/api/stats', dashboardRoutes);
 app.use('/api', cancellationsRoutes);
 app.use('/api', surveysRoutes);
+app.use('/api', historyRoutes);
 
 // Serve o frontend (build de produção)
 app.use(express.static(join(__dirname, 'dist')));

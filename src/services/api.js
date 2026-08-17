@@ -49,3 +49,16 @@ export const updateCancellationCategory = async (id, category, note) => {
   if (!res.ok) throw new Error('Falha ao salvar categoria do cancelamento');
   return res.json();
 };
+
+export const getMonthlyHistory = async () => {
+  const res = await authFetch('/api/history/monthly');
+  if (!res.ok) throw new Error('Falha ao buscar histórico mensal');
+  const { months } = await res.json();
+  return months;
+};
+
+export const getCustomerHistory = async (id) => {
+  const res = await authFetch(`/api/history/customer/${encodeURIComponent(id)}`);
+  if (!res.ok) throw new Error('Falha ao buscar histórico do cliente');
+  return res.json();
+};

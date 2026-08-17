@@ -1,8 +1,9 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Users, AlertTriangle, MessageSquare, Zap, CreditCard, TrendingUp, QrCode, Receipt } from 'lucide-react';
 import { formatCurrency, formatNumber, formatJoinDate } from '../utils/formatters';
 import { formatLastLogin, formatNextCharge } from '../utils/healthScore';
 import GlassCard from './ui/GlassCard';
+import CustomerHistoryModal from './CustomerHistoryModal';
 
 const STATUS_LABELS = {
   Healthy: { label: 'Saudável', cls: 'bg-emerald-100 dark:bg-emerald-500/10 text-emerald-700 dark:text-emerald-400' },
@@ -50,6 +51,8 @@ const TpvMethodTile = ({ icon, label, transactions, total }) => (
 );
 
 const CustomerDetails = ({ selectedCustomer }) => {
+  const [showHistory, setShowHistory] = useState(false);
+
   if (!selectedCustomer) {
     return (
       <div className="lg:col-span-1">
@@ -91,7 +94,10 @@ const CustomerDetails = ({ selectedCustomer }) => {
           </p>
           <p className="text-slate-400 dark:text-slate-500 text-xs mb-4">Cód. {c.id}</p>
           <div className="flex gap-2">
-            <button className="flex-1 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 py-2 rounded-lg text-xs font-semibold hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors">
+            <button
+              onClick={() => setShowHistory(true)}
+              className="flex-1 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 py-2 rounded-lg text-xs font-semibold hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors"
+            >
               Histórico
             </button>
             <button className="flex-1 bg-brand-600 hover:bg-brand-500 text-white py-2 rounded-lg text-xs font-semibold shadow-md shadow-brand-100 dark:shadow-brand-900/20 transition-colors">
@@ -195,6 +201,13 @@ const CustomerDetails = ({ selectedCustomer }) => {
           )}
         </div>
       </GlassCard>
+      {showHistory && (
+        <CustomerHistoryModal
+          customerId={c.id}
+          customerName={c.name}
+          onClose={() => setShowHistory(false)}
+        />
+      )}
     </div>
   );
 };
